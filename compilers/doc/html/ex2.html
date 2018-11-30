@@ -1,0 +1,548 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Exercise 2 - Parsing and Abstract Syntax Trees &#8212; Write a Compiler 0.0 documentation</title>
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '0.0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true,
+        SOURCELINK_SUFFIX: '.txt'
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Exercise 3 - Type Checking" href="ex3.html" />
+    <link rel="prev" title="Exercise 1 - Lexing" href="ex1.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="exercise-2-parsing-and-abstract-syntax-trees">
+<h1>Exercise 2  - Parsing and Abstract Syntax Trees<a class="headerlink" href="#exercise-2-parsing-and-abstract-syntax-trees" title="Permalink to this headline">¶</a></h1>
+<p>The second step of a compiler is to parse the sequence of tokens
+produced by the lexer.  Often, the end result of parsing is a data
+structure known as an Abstract Syntax Tree (AST).  For example,
+suppose you have this statement:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">a</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">+</span> <span class="mi">3</span> <span class="o">*</span> <span class="p">(</span><span class="mi">4</span> <span class="o">+</span> <span class="mi">5</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>An abstract syntax tree might look like this:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span>    <span class="o">=</span>
+  <span class="o">/</span>   \
+<span class="s2">&quot;a&quot;</span>    <span class="o">+</span>
+     <span class="o">/</span>   \
+    <span class="mi">2</span>     <span class="o">*</span>
+        <span class="o">/</span>   \
+       <span class="mi">3</span>     <span class="o">+</span>
+           <span class="o">/</span>   \
+          <span class="mi">4</span>     <span class="mi">5</span>
+</pre></div>
+</div>
+<p>Essentially, the AST describes the syntactic structure of the program.
+For example, in this tree, the topmost node is “=” which means that it
+is an assignment statement.  The left-hand node is the location of the
+assignment (“a”) and the right-hand node is the value.  Since the
+value is an arithmetic expression, it consists of further nodes
+corresponding to different mathematical operators.</p>
+<p>A minimal way to represent an AST is through a series of nested tuples
+of the the form (operation, child1, child2, …).  For example, the
+above parse tree could be stored like this:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">parse</span> <span class="o">=</span> <span class="p">(</span><span class="s1">&#39;=&#39;</span><span class="p">,</span> <span class="s1">&#39;a&#39;</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;+&#39;</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;*&#39;</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;+&#39;</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">))))</span>
+</pre></div>
+</div>
+<p>This structure is very similar to what are known as S-expressions in
+Lisp (See <a class="reference external" href="http://en.wikipedia.org/wiki/S-expression">http://en.wikipedia.org/wiki/S-expression</a>).</p>
+<div class="section" id="parser-generator-tools">
+<h2>Parser Generator Tools<a class="headerlink" href="#parser-generator-tools" title="Permalink to this headline">¶</a></h2>
+<p>In most programming languages, parsers are rarely written entirely by
+hand.  Parsing is a well-studied problem in computer science involving
+various algorithms and strategies.  Generally what happens is that the
+grammar for a language is specified in a high-level form and then fed
+to a tool that generates the appropriate parsing code.  The reason
+for doing this is that the grammar for a typical programming language might
+have hundreds of grammar rules.  If everything is hand-coded, it becomes
+incredibly hard to make changes and add new language features. Tools
+vastly simplify this.</p>
+<p>Even Python works this way.  If you’ve never looked at this part of
+the CPython source, go take a look.  In the CPython source
+distribution, the file <code class="docutils literal"><span class="pre">Grammar/Grammar</span></code> contains a specification of
+the Python language grammar.  Go look at it.</p>
+<p>During the compilation of Python, the grammar is processed by a tool called
+<code class="docutils literal"><span class="pre">pgen</span></code> to create C source code.  Try it yourself:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">bash</span> <span class="o">%</span> <span class="n">cd</span> <span class="n">Python</span><span class="o">-</span><span class="mf">3.5</span>
+<span class="n">bash</span> <span class="o">%</span> <span class="n">Parser</span><span class="o">/</span><span class="n">pgen</span> <span class="n">Grammar</span><span class="o">/</span><span class="n">Grammar</span> <span class="n">graminit</span><span class="o">.</span><span class="n">h</span> <span class="n">graminit</span><span class="o">.</span><span class="n">c</span>
+<span class="n">bash</span> <span class="o">%</span> <span class="n">cat</span> <span class="n">graminit</span><span class="o">.</span><span class="n">h</span>
+<span class="o">...</span> <span class="n">look</span> <span class="n">at</span> <span class="n">the</span> <span class="n">output</span> <span class="o">...</span>
+<span class="n">bash</span> <span class="o">%</span> <span class="n">cat</span> <span class="n">graminit</span><span class="o">.</span><span class="n">c</span>
+<span class="o">...</span> <span class="n">look</span> <span class="n">at</span> <span class="n">the</span> <span class="n">output</span> <span class="o">...</span>
+</pre></div>
+</div>
+<p>Under the covers it all gets turned into cryptic parsing tables. You’re
+not really supposed to worry about it though (i.e., the generated code
+is not meant to be understood by humans).</p>
+<p>Just so you know, PEP 306 has information about what’s involved in changing the
+Python grammar.  See <a class="reference external" href="http://www.python.org/dev/peps/pep-0306/">http://www.python.org/dev/peps/pep-0306/</a>.</p>
+</div>
+<div class="section" id="writing-a-parser-with-sly">
+<h2>Writing a Parser with SLY<a class="headerlink" href="#writing-a-parser-with-sly" title="Permalink to this headline">¶</a></h2>
+<p>To write our parser, we’re going to use SLY.  To do this, you will
+need the lexer written for Exercise 1.  Copy the file
+<code class="docutils literal"><span class="pre">Exercises/1/simplelex.py</span></code> if you need to get working code.  Create
+a file <code class="docutils literal"><span class="pre">simpleparser.py</span></code> that looks like this:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="c1"># simpleparse.py</span>
+
+<span class="kn">from</span> <span class="nn">sly</span> <span class="k">import</span> <span class="n">Parser</span>
+<span class="kn">from</span> <span class="nn">simplelex</span> <span class="k">import</span> <span class="n">SimpleLexer</span>
+
+<span class="k">class</span> <span class="nc">SimpleParser</span><span class="p">(</span><span class="n">Parser</span><span class="p">):</span>
+    <span class="c1"># Specify the tokens set (terminals)</span>
+
+    <span class="n">tokens</span> <span class="o">=</span> <span class="n">SimpleLexer</span><span class="o">.</span><span class="n">tokens</span>
+
+    <span class="c1"># Grammar:</span>
+    <span class="c1">#</span>
+    <span class="c1"># assignment ::=  ID ASSIGN expr</span>
+    <span class="c1">#</span>
+    <span class="c1"># expr       ::= expr PLUS term</span>
+    <span class="c1">#             |  term</span>
+    <span class="c1">#</span>
+    <span class="c1"># term       ::= term TIMES factor</span>
+    <span class="c1">#             |  factor</span>
+    <span class="c1">#</span>
+    <span class="c1"># factor     ::= LPAREN expr RPAREN</span>
+    <span class="c1">#             |  NUMBER</span>
+    <span class="c1">#             |  ID</span>
+
+    <span class="nd">@_</span><span class="p">(</span><span class="s1">&#39;ID ASSIGN expr&#39;</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">assignment</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">p</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">p</span>
+
+    <span class="nd">@_</span><span class="p">(</span><span class="s1">&#39;expr PLUS term&#39;</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">expr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">p</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">p</span>
+
+    <span class="nd">@_</span><span class="p">(</span><span class="s1">&#39;term&#39;</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">expr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">p</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">p</span>
+
+    <span class="nd">@_</span><span class="p">(</span><span class="s1">&#39;term TIMES factor&#39;</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">term</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">p</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">p</span>
+
+    <span class="nd">@_</span><span class="p">(</span><span class="s1">&#39;factor&#39;</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">term</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">p</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">p</span>
+
+    <span class="nd">@_</span><span class="p">(</span><span class="s1">&#39;LPAREN expr RPAREN&#39;</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">factor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">p</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">p</span>
+
+    <span class="nd">@_</span><span class="p">(</span><span class="s1">&#39;NUMBER&#39;</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">factor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">p</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">p</span>
+
+    <span class="nd">@_</span><span class="p">(</span><span class="s1">&#39;ID&#39;</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">factor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">p</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">p</span>
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">&#39;__main__&#39;</span><span class="p">:</span>
+    <span class="n">text</span> <span class="o">=</span> <span class="s1">&#39;a = 2 + 3 * (4 + 5)&#39;</span>
+    <span class="n">lexer</span> <span class="o">=</span> <span class="n">SimpleLexer</span><span class="p">()</span>
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">SimpleParser</span><span class="p">()</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">lexer</span><span class="o">.</span><span class="n">tokenize</span><span class="p">(</span><span class="n">text</span><span class="p">))</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>As first glance, this is likely to make your head shatter.  Weird
+decorators.  Duplicate method names?  What on earth is going on?
+Essentially what’s happening here is a form of pattern matching.  If
+you have a grammar rule like this:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">expr</span> <span class="p">::</span><span class="o">=</span> <span class="n">expr</span> <span class="n">PLUS</span> <span class="n">term</span>
+</pre></div>
+</div>
+<p>it gets expressed as a method like this:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="nd">@_</span><span class="p">(</span><span class="s1">&#39;expr PLUS term&#39;</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">expr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">p</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">p</span>
+</pre></div>
+</div>
+<p>The <code class="docutils literal"><span class="pre">&#64;_()</span></code> decorator gives the right-hand-side of the grammar rule
+(e.g., <code class="docutils literal"><span class="pre">expr</span> <span class="pre">PLUS</span> <span class="pre">term</span></code>). The name of the method must match the
+left-hand-side (e.g., <code class="docutils literal"><span class="pre">expr</span></code>).</p>
+<p>Running the above code, you may get output similar to this:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">WARNING</span><span class="p">:</span> <span class="n">Token</span> <span class="s1">&#39;GT&#39;</span> <span class="n">defined</span><span class="p">,</span> <span class="n">but</span> <span class="ow">not</span> <span class="n">used</span>
+<span class="n">WARNING</span><span class="p">:</span> <span class="n">Token</span> <span class="s1">&#39;ELSE&#39;</span> <span class="n">defined</span><span class="p">,</span> <span class="n">but</span> <span class="ow">not</span> <span class="n">used</span>
+<span class="n">WARNING</span><span class="p">:</span> <span class="n">Token</span> <span class="s1">&#39;LT&#39;</span> <span class="n">defined</span><span class="p">,</span> <span class="n">but</span> <span class="ow">not</span> <span class="n">used</span>
+<span class="n">WARNING</span><span class="p">:</span> <span class="n">Token</span> <span class="s1">&#39;NE&#39;</span> <span class="n">defined</span><span class="p">,</span> <span class="n">but</span> <span class="ow">not</span> <span class="n">used</span>
+<span class="n">WARNING</span><span class="p">:</span> <span class="n">Token</span> <span class="s1">&#39;GE&#39;</span> <span class="n">defined</span><span class="p">,</span> <span class="n">but</span> <span class="ow">not</span> <span class="n">used</span>
+<span class="n">WARNING</span><span class="p">:</span> <span class="n">Token</span> <span class="s1">&#39;EQ&#39;</span> <span class="n">defined</span><span class="p">,</span> <span class="n">but</span> <span class="ow">not</span> <span class="n">used</span>
+<span class="n">WARNING</span><span class="p">:</span> <span class="n">Token</span> <span class="s1">&#39;LE&#39;</span> <span class="n">defined</span><span class="p">,</span> <span class="n">but</span> <span class="ow">not</span> <span class="n">used</span>
+<span class="n">WARNING</span><span class="p">:</span> <span class="n">Token</span> <span class="s1">&#39;IF&#39;</span> <span class="n">defined</span><span class="p">,</span> <span class="n">but</span> <span class="ow">not</span> <span class="n">used</span>
+<span class="n">WARNING</span><span class="p">:</span> <span class="n">Token</span> <span class="s1">&#39;WHILE&#39;</span> <span class="n">defined</span><span class="p">,</span> <span class="n">but</span> <span class="ow">not</span> <span class="n">used</span>
+<span class="n">WARNING</span><span class="p">:</span> <span class="n">There</span> <span class="n">are</span> <span class="mi">9</span> <span class="n">unused</span> <span class="n">tokens</span>
+<span class="p">(</span><span class="s1">&#39;assignment&#39;</span><span class="p">,</span> <span class="s1">&#39;a&#39;</span><span class="p">,</span> <span class="s1">&#39;=&#39;</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;expr&#39;</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;expr&#39;</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;term&#39;</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;factor&#39;</span><span class="p">,</span> <span class="s1">&#39;2&#39;</span><span class="p">))),</span> <span class="s1">&#39;+&#39;</span><span class="p">,</span>
+  <span class="p">(</span><span class="s1">&#39;term&#39;</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;term&#39;</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;factor&#39;</span><span class="p">,</span> <span class="s1">&#39;3&#39;</span><span class="p">)),</span> <span class="s1">&#39;*&#39;</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;factor&#39;</span><span class="p">,</span> <span class="s1">&#39;(&#39;</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;expr&#39;</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;expr&#39;</span><span class="p">,</span>
+  <span class="p">(</span><span class="s1">&#39;term&#39;</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;factor&#39;</span><span class="p">,</span> <span class="s1">&#39;4&#39;</span><span class="p">))),</span> <span class="s1">&#39;+&#39;</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;term&#39;</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;factor&#39;</span><span class="p">,</span> <span class="s1">&#39;5&#39;</span><span class="p">))),</span> <span class="s1">&#39;)&#39;</span><span class="p">))))</span>
+</pre></div>
+</div>
+<p>The warning messages mean that the tokenizer might produce tokens
+that are unrecognized by the parser because they don’t appear in
+any grammar rules.  The first rule of parsing tools is to pay
+attention to the warning messages!   Usually they mean that
+there is some kind of potential problem.  For now, we’ll ignore the
+messages.</p>
+<p>The final output of the program is a concrete syntax tree, expressed
+as nested tuples. Reading through that is a bit painful, but you
+should see some output that matches the structure of what was parsed.</p>
+</div>
+<div class="section" id="building-s-expressions">
+<h2>Building S-Expressions<a class="headerlink" href="#building-s-expressions" title="Permalink to this headline">¶</a></h2>
+<p>One problem here is that parse trees are often much more complicated
+than you’d like.  It might make more sense to try to simplify it.</p>
+<p>Try modifying your grammar so that it looks like this:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="c1"># simpleparse.py</span>
+
+<span class="kn">from</span> <span class="nn">sly</span> <span class="k">import</span> <span class="n">Parser</span>
+<span class="kn">from</span> <span class="nn">simplelex</span> <span class="k">import</span> <span class="n">SimpleLexer</span>
+
+<span class="k">class</span> <span class="nc">SimpleParser</span><span class="p">(</span><span class="n">Parser</span><span class="p">):</span>
+
+    <span class="n">tokens</span> <span class="o">=</span> <span class="n">SimpleLexer</span><span class="o">.</span><span class="n">tokens</span>
+
+    <span class="c1"># Grammar:</span>
+    <span class="c1">#</span>
+    <span class="c1"># assignment ::=  ID ASSIGN expr</span>
+    <span class="c1">#</span>
+    <span class="c1"># expr       ::= expr PLUS term</span>
+    <span class="c1">#             |  term</span>
+    <span class="c1">#</span>
+    <span class="c1"># term       ::= term TIMES factor</span>
+    <span class="c1">#             |  factor</span>
+    <span class="c1">#</span>
+    <span class="c1"># factor     ::= LPAREN expr RPAREN</span>
+    <span class="c1">#             |  NUMBER</span>
+    <span class="c1">#             |  ID</span>
+
+    <span class="nd">@_</span><span class="p">(</span><span class="s1">&#39;ID ASSIGN expr&#39;</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">assignment</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">p</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">(</span><span class="s1">&#39;=&#39;</span><span class="p">,</span> <span class="n">p</span><span class="o">.</span><span class="n">ID</span><span class="p">,</span> <span class="n">p</span><span class="o">.</span><span class="n">expr</span><span class="p">)</span>
+
+    <span class="nd">@_</span><span class="p">(</span><span class="s1">&#39;expr PLUS term&#39;</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">expr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">p</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">(</span><span class="s1">&#39;+&#39;</span><span class="p">,</span> <span class="n">p</span><span class="o">.</span><span class="n">expr</span><span class="p">,</span> <span class="n">p</span><span class="o">.</span><span class="n">term</span><span class="p">)</span>
+
+    <span class="nd">@_</span><span class="p">(</span><span class="s1">&#39;term&#39;</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">expr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">p</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">p</span><span class="o">.</span><span class="n">term</span>
+
+    <span class="nd">@_</span><span class="p">(</span><span class="s1">&#39;term TIMES factor&#39;</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">term</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">p</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">(</span><span class="s1">&#39;*&#39;</span><span class="p">,</span> <span class="n">p</span><span class="o">.</span><span class="n">term</span><span class="p">,</span> <span class="n">p</span><span class="o">.</span><span class="n">factor</span><span class="p">)</span>
+
+    <span class="nd">@_</span><span class="p">(</span><span class="s1">&#39;factor&#39;</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">term</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">p</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">p</span><span class="o">.</span><span class="n">factor</span>
+
+    <span class="nd">@_</span><span class="p">(</span><span class="s1">&#39;LPAREN expr RPAREN&#39;</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">factor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">p</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">p</span><span class="o">.</span><span class="n">expr</span>
+
+    <span class="nd">@_</span><span class="p">(</span><span class="s1">&#39;NUMBER&#39;</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">factor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">p</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">p</span><span class="o">.</span><span class="n">NUMBER</span>
+
+    <span class="nd">@_</span><span class="p">(</span><span class="s1">&#39;ID&#39;</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">factor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">p</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">p</span><span class="o">.</span><span class="n">ID</span>
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">&#39;__main__&#39;</span><span class="p">:</span>
+    <span class="n">text</span> <span class="o">=</span> <span class="s1">&#39;a = 2 + 3 * (4 + 5)&#39;</span>
+    <span class="n">lexer</span> <span class="o">=</span> <span class="n">SimpleLexer</span><span class="p">()</span>
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">SimpleParser</span><span class="p">()</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">lexer</span><span class="o">.</span><span class="n">tokenize</span><span class="p">(</span><span class="n">text</span><span class="p">))</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The output of this program is a simplified S-expression like this:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="p">(</span><span class="s1">&#39;=&#39;</span><span class="p">,</span> <span class="s1">&#39;a&#39;</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;+&#39;</span><span class="p">,</span> <span class="s1">&#39;2&#39;</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;*&#39;</span><span class="p">,</span> <span class="s1">&#39;3&#39;</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;+&#39;</span><span class="p">,</span> <span class="s1">&#39;4&#39;</span><span class="p">,</span> <span class="s1">&#39;5&#39;</span><span class="p">))))</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="abstract-syntax-trees">
+<h2>Abstract Syntax Trees<a class="headerlink" href="#abstract-syntax-trees" title="Permalink to this headline">¶</a></h2>
+<p>Processing S-expressions is a bit painful in Python so as an
+alternative, you might want to take a more object-oriented approach.
+For example, to represent an AST, it is common to define classes for
+each kind of node like this:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">AST</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+      <span class="k">pass</span>
+
+<span class="k">class</span> <span class="nc">Assignment</span><span class="p">(</span><span class="n">AST</span><span class="p">):</span>
+      <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">location</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+          <span class="bp">self</span><span class="o">.</span><span class="n">location</span> <span class="o">=</span> <span class="n">location</span>
+          <span class="bp">self</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="n">value</span>
+
+<span class="k">class</span> <span class="nc">BinOp</span><span class="p">(</span><span class="n">AST</span><span class="p">):</span>
+      <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">operator</span><span class="p">,</span> <span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">):</span>
+          <span class="bp">self</span><span class="o">.</span><span class="n">operator</span> <span class="o">=</span> <span class="n">operator</span>
+          <span class="bp">self</span><span class="o">.</span><span class="n">left</span> <span class="o">=</span> <span class="n">left</span>
+          <span class="bp">self</span><span class="o">.</span><span class="n">right</span> <span class="o">=</span> <span class="n">right</span>
+
+<span class="k">class</span> <span class="nc">Number</span><span class="p">(</span><span class="n">AST</span><span class="p">):</span>
+      <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+          <span class="bp">self</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="n">value</span>
+
+<span class="k">class</span> <span class="nc">Identifier</span><span class="p">(</span><span class="n">AST</span><span class="p">):</span>
+      <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+          <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span>
+</pre></div>
+</div>
+<p>Thus, your abstract syntax tree becomes a series of nodes like this:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span>        <span class="n">Assignment</span>
+        <span class="o">/</span>        \
+       <span class="o">/</span>          \
+<span class="n">Identifier</span><span class="p">(</span><span class="s2">&quot;a&quot;</span><span class="p">)</span>   <span class="n">BinOp</span><span class="p">(</span><span class="s2">&quot;+&quot;</span><span class="p">)</span>
+                <span class="o">/</span>            \
+               <span class="o">/</span>              \
+          <span class="n">Number</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>       <span class="n">BinOp</span><span class="p">(</span><span class="s2">&quot;*&quot;</span><span class="p">)</span>
+                             <span class="o">/</span>      \
+                            <span class="o">/</span>        \
+                     <span class="n">Number</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>    <span class="n">BinOp</span><span class="p">(</span><span class="s2">&quot;+&quot;</span><span class="p">)</span>
+                                     <span class="o">/</span>     \
+                                    <span class="o">/</span>       \
+                              <span class="n">Number</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span>    <span class="n">Number</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="viewing-python-asts">
+<h2>Viewing Python ASTs<a class="headerlink" href="#viewing-python-asts" title="Permalink to this headline">¶</a></h2>
+<p>The <code class="docutils literal"><span class="pre">ast</span></code> module allows you to create and view abstract syntax trees
+built by Python itself.  Try a simple experiment:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">text</span> <span class="o">=</span> <span class="s2">&quot;a = 2 + 3 * (4 + 5)&quot;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">ast</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">c</span> <span class="o">=</span> <span class="n">ast</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">text</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">ast</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">c</span><span class="p">))</span>
+<span class="go">Module(body=[Assign(targets=[Name(id=&#39;a&#39;, ctx=Store())],</span>
+<span class="go">       value=BinOp(left=Num(n=2), op=Add(),</span>
+<span class="go">       right=BinOp(left=Num(n=3), op=Mult(),</span>
+<span class="go">       right=BinOp(left=Num(n=4), op=Add(), right=Num(n=5)))))])</span>
+</pre></div>
+</div>
+<p>Carefully study the output and notice that it is very similar to what’s
+described above.  Try traversing down into the parse tree yourself:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">c</span><span class="o">.</span><span class="n">body</span>
+<span class="go">[&lt;_ast.Assign object at 0x1004a3690&gt;]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">c</span><span class="o">.</span><span class="n">body</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">targets</span>
+<span class="go">[&lt;_ast.Name object at 0x1004a36d0&gt;]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">c</span><span class="o">.</span><span class="n">body</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">targets</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">id</span>
+<span class="go">&#39;a&#39;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">c</span><span class="o">.</span><span class="n">body</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">value</span>
+<span class="go">&lt;_ast.BinOp object at 0x1004a3710&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">c</span><span class="o">.</span><span class="n">body</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">left</span>
+<span class="go">&lt;_ast.Num object at 0x1004a3750&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">c</span><span class="o">.</span><span class="n">body</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">left</span><span class="o">.</span><span class="n">n</span>
+<span class="go">2</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">c</span><span class="o">.</span><span class="n">body</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">right</span>
+<span class="go">&lt;_ast.BinOp object at 0x1004a3790&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">c</span><span class="o">.</span><span class="n">body</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">right</span><span class="o">.</span><span class="n">op</span>
+<span class="go">&lt;_ast.Mult object at 0x10049f790&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">c</span><span class="o">.</span><span class="n">body</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">right</span><span class="o">.</span><span class="n">left</span>
+<span class="go">&lt;_ast.Num object at 0x1004a37d0&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">c</span><span class="o">.</span><span class="n">body</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">right</span><span class="o">.</span><span class="n">right</span>
+<span class="go">&lt;_ast.BinOp object at 0x1004a3810&gt;</span>
+<span class="go">&gt;&gt;&gt;</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="building-an-ast-with-sly">
+<h2>Building an AST with SLY<a class="headerlink" href="#building-an-ast-with-sly" title="Permalink to this headline">¶</a></h2>
+<p>Make a file <code class="docutils literal"><span class="pre">simpleast.py</span></code> and put the class definitions defined earlier in it.
+Now, change the code in <code class="docutils literal"><span class="pre">simpleparse.py</span></code> so that it looks like this:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="c1"># simpleparse.py</span>
+
+<span class="kn">from</span> <span class="nn">sly</span> <span class="k">import</span> <span class="n">Parser</span>
+<span class="kn">from</span> <span class="nn">simplelex</span> <span class="k">import</span> <span class="n">SimpleLexer</span>
+<span class="kn">from</span> <span class="nn">simpleast</span> <span class="k">import</span> <span class="o">*</span>
+
+<span class="k">class</span> <span class="nc">SimpleParser</span><span class="p">(</span><span class="n">Parser</span><span class="p">):</span>
+    <span class="c1"># Specify the tokens set (terminals)</span>
+
+    <span class="n">tokens</span> <span class="o">=</span> <span class="n">SimpleLexer</span><span class="o">.</span><span class="n">tokens</span>
+
+    <span class="c1"># Grammar:</span>
+    <span class="c1">#</span>
+    <span class="c1"># assignment ::=  ID ASSIGN expr</span>
+    <span class="c1">#</span>
+    <span class="c1"># expr       ::= expr PLUS term</span>
+    <span class="c1">#             |  term</span>
+    <span class="c1">#</span>
+    <span class="c1"># term       ::= term TIMES factor</span>
+    <span class="c1">#             |  factor</span>
+    <span class="c1">#</span>
+    <span class="c1"># factor     ::= LPAREN expr RPAREN</span>
+    <span class="c1">#             |  NUMBER</span>
+    <span class="c1">#             |  ID</span>
+
+    <span class="nd">@_</span><span class="p">(</span><span class="s1">&#39;ID ASSIGN expr&#39;</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">assignment</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">p</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">Assignment</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">ID</span><span class="p">,</span> <span class="n">p</span><span class="o">.</span><span class="n">expr</span><span class="p">)</span>
+
+    <span class="nd">@_</span><span class="p">(</span><span class="s1">&#39;expr PLUS term&#39;</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">expr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">p</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">BinOp</span><span class="p">(</span><span class="s1">&#39;+&#39;</span><span class="p">,</span> <span class="n">p</span><span class="o">.</span><span class="n">expr</span><span class="p">,</span> <span class="n">p</span><span class="o">.</span><span class="n">term</span><span class="p">)</span>
+
+    <span class="nd">@_</span><span class="p">(</span><span class="s1">&#39;term&#39;</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">expr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">p</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">p</span><span class="o">.</span><span class="n">term</span>
+
+    <span class="nd">@_</span><span class="p">(</span><span class="s1">&#39;term TIMES factor&#39;</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">term</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">p</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">BinOp</span><span class="p">(</span><span class="s1">&#39;*&#39;</span><span class="p">,</span> <span class="n">p</span><span class="o">.</span><span class="n">term</span><span class="p">,</span> <span class="n">p</span><span class="o">.</span><span class="n">factor</span><span class="p">)</span>
+
+    <span class="nd">@_</span><span class="p">(</span><span class="s1">&#39;factor&#39;</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">term</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">p</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">p</span><span class="o">.</span><span class="n">factor</span>
+
+    <span class="nd">@_</span><span class="p">(</span><span class="s1">&#39;LPAREN expr RPAREN&#39;</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">factor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">p</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">p</span><span class="o">.</span><span class="n">expr</span>
+
+    <span class="nd">@_</span><span class="p">(</span><span class="s1">&#39;NUMBER&#39;</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">factor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">p</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">Number</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">NUMBER</span><span class="p">)</span>
+
+    <span class="nd">@_</span><span class="p">(</span><span class="s1">&#39;ID&#39;</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">factor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">p</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">Identifier</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">ID</span><span class="p">)</span>
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">&#39;__main__&#39;</span><span class="p">:</span>
+    <span class="n">text</span> <span class="o">=</span> <span class="s1">&#39;a = 2 + 3 * (4 + 5)&#39;</span>
+    <span class="n">lexer</span> <span class="o">=</span> <span class="n">SimpleLexer</span><span class="p">()</span>
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">SimpleParser</span><span class="p">()</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">lexer</span><span class="o">.</span><span class="n">tokenize</span><span class="p">(</span><span class="n">text</span><span class="p">))</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>In this version, the different methods are programmed to create and/or propagate
+an AST node element. For example, if you have a grammar rule like this:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">expr</span> <span class="p">:</span> <span class="n">expr</span> <span class="n">PLUS</span> <span class="n">term</span>
+</pre></div>
+</div>
+<p>that turns into a method:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="nd">@_</span><span class="p">(</span><span class="s1">&#39;expr PLUS term&#39;</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">expr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">p</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">BinOp</span><span class="p">(</span><span class="s1">&#39;+&#39;</span><span class="p">,</span> <span class="n">p</span><span class="o">.</span><span class="n">expr</span><span class="p">,</span> <span class="n">p</span><span class="o">.</span><span class="n">term</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The <code class="docutils literal"><span class="pre">p</span></code> argument to the <code class="docutils literal"><span class="pre">expr()</span></code> contains the values of
+the symbols on the right hand side. Access to <code class="docutils literal"><span class="pre">p.expr</span></code> returns the
+left side of the <code class="docutils literal"><span class="pre">+</span></code> operator.  <code class="docutils literal"><span class="pre">p.term</span></code> returns the right side of
+the <code class="docutils literal"><span class="pre">+</span></code> operator.</p>
+<p>If you run this program, you’ll get a result that looks like this:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="o">&lt;</span><span class="n">simpleast</span><span class="o">.</span><span class="n">Assignment</span> <span class="nb">object</span> <span class="n">at</span> <span class="mh">0x100b8b2b0</span><span class="o">&gt;</span>
+</pre></div>
+</div>
+<p>That’s not the most friendly output. Maybe add a few print statements
+to drill down into the data structure:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="s1">&#39;location:&#39;</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">location</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s1">&#39;value:&#39;</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Spend a few minutes playing around with the structure.  Try the same
+sort of navigation that you did with the Python AST.</p>
+<p>One critical note concerns the ordering of rules in the grammar
+specification.  SLY always treats the first decorated rule (i.e., the
+first method with <cite>&#64;_(…)</cite> as the “top” of the grammar.   Generally
+this will be the highest level construct such as the entire program.</p>
+<p>You’re now ready to move on to Project 2.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Exercise 2  - Parsing and Abstract Syntax Trees</a><ul>
+<li><a class="reference internal" href="#parser-generator-tools">Parser Generator Tools</a></li>
+<li><a class="reference internal" href="#writing-a-parser-with-sly">Writing a Parser with SLY</a></li>
+<li><a class="reference internal" href="#building-s-expressions">Building S-Expressions</a></li>
+<li><a class="reference internal" href="#abstract-syntax-trees">Abstract Syntax Trees</a></li>
+<li><a class="reference internal" href="#viewing-python-asts">Viewing Python ASTs</a></li>
+<li><a class="reference internal" href="#building-an-ast-with-sly">Building an AST with SLY</a></li>
+</ul>
+</li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="ex1.html" title="previous chapter">Exercise 1  - Lexing</a></li>
+      <li>Next: <a href="ex3.html" title="next chapter">Exercise 3 - Type Checking</a></li>
+  </ul></li>
+</ul>
+</div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/ex2.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2016, David Beazley.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.6.6</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.10</a>
+      
+      |
+      <a href="_sources/ex2.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

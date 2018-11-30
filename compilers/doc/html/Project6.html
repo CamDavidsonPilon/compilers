@@ -1,0 +1,269 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Project 6 - Booleans and Relations &#8212; Write a Compiler 0.0 documentation</title>
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '0.0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true,
+        SOURCELINK_SUFFIX: '.txt'
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Project 7 - Control Flow" href="Project7.html" />
+    <link rel="prev" title="Project 5 - LLVM Code Generation" href="Project5.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="project-6-booleans-and-relations">
+<h1>Project 6 - Booleans and Relations<a class="headerlink" href="#project-6-booleans-and-relations" title="Permalink to this headline">¶</a></h1>
+<p>Files Modified:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span>Everything!
+</pre></div>
+</div>
+<div class="section" id="preliminaries">
+<h2>Preliminaries<a class="headerlink" href="#preliminaries" title="Permalink to this headline">¶</a></h2>
+<p>Don’t forget to commit and tag your Project 5 code:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">bash</span> <span class="o">%</span> <span class="n">git</span> <span class="n">commit</span> <span class="o">-</span><span class="n">m</span> <span class="s2">&quot;Project 5 complete&quot;</span>
+<span class="n">bash</span> <span class="o">%</span> <span class="n">git</span> <span class="n">tag</span> <span class="n">project5</span>
+</pre></div>
+</div>
+<p>Be advised that this project involves changes to almost everything
+that you have written before.   Failure to commit your previous
+(hopefully working) code before beginning is a sure path to sorrow.</p>
+</div>
+<div class="section" id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Permalink to this headline">¶</a></h2>
+<p>This project is simple to describe, but a bit of work to implement.  You need
+to give your compiler support for boolean operators and relations.
+Specifically, you need to add support for the following operators:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span>a &lt; b
+a &lt;= b
+a &gt; b
+a &gt;= b
+a == b
+a != b
+
+a &amp;&amp; b            // Logical and
+a || b            // Logical or
+!a                // Logical negation
+</pre></div>
+</div>
+<p>You also need to give your compile a proper bool data type along with
+<code class="docutils literal"><span class="pre">true</span></code> and <code class="docutils literal"><span class="pre">false</span></code> literals.  For example:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">var</span> <span class="n">a</span> <span class="nb">bool</span> <span class="o">=</span> <span class="n">true</span><span class="p">;</span>
+<span class="n">var</span> <span class="n">b</span> <span class="nb">bool</span> <span class="o">=</span> <span class="n">false</span><span class="p">;</span>
+</pre></div>
+</div>
+<p>All relations and logical operators always produce a result type of
+<code class="docutils literal"><span class="pre">bool</span></code>.  This is a little different than the normal binary operators
+where the result is the same type as the operands.</p>
+<p>With relations, you get more precedence rules.  Here is the precedence
+of operators, from lowest to highest:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span>||
+&amp;&amp;
+&lt;, &lt;=, &gt;, &gt;=, ==, !=
++, -
+*, /
+Unary : +, -, !
+</pre></div>
+</div>
+<p>Your compiler should not allow chained relations. For example:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">a</span> <span class="o">&lt;</span> <span class="n">b</span>              <span class="o">//</span> <span class="n">OK</span>
+<span class="n">a</span> <span class="o">&lt;</span> <span class="n">b</span> <span class="o">&lt;</span> <span class="n">c</span>          <span class="o">//</span> <span class="n">Error</span>
+</pre></div>
+</div>
+<p>See <a class="reference external" href="http://www.dabeaz.com/ply/ply.html#ply_nn27">http://www.dabeaz.com/ply/ply.html#ply_nn27</a> for information on
+how to restrict this in the parser by adding ‘nonassoc’ entries
+to the precedence table.</p>
+<p>The logical-and, logical-or, and logical negation operators always
+expect the operands to be of type bool.  Thus, you will need to
+account for things like this:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">var</span> <span class="n">a</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span><span class="p">;</span>
+<span class="n">var</span> <span class="n">b</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span><span class="p">;</span>
+
+<span class="n">var</span> <span class="n">c</span> <span class="nb">bool</span> <span class="o">=</span> <span class="p">(</span><span class="n">a</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)</span> <span class="o">||</span> <span class="p">(</span><span class="n">b</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">);</span>      <span class="o">//</span> <span class="n">OK</span>
+<span class="n">var</span> <span class="n">d</span> <span class="nb">bool</span> <span class="o">=</span> <span class="n">a</span> <span class="o">||</span> <span class="n">b</span><span class="p">;</span>                    <span class="o">//</span> <span class="n">ERROR</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="implementation-suggestion">
+<h2>Implementation Suggestion<a class="headerlink" href="#implementation-suggestion" title="Permalink to this headline">¶</a></h2>
+<p>The relational operators can be added as new binary operators
+in your parser.  This may not require much work, but you’ll
+need to add some new precedence rules.   Also, the type system
+needs to make that all such operations return a result type of
+‘bool’.</p>
+<p>The logical negation operator can be handled as a standard unary
+operator.  Just make sure that it only works if the operand is a
+boolean type.</p>
+<p>Suggested work sequence:</p>
+<blockquote>
+<div><ul class="simple">
+<li>Add new tokens to <code class="docutils literal"><span class="pre">gone/tokenizer.py</span></code></li>
+<li>Add new parsing rules to <code class="docutils literal"><span class="pre">gone/parser.py</span></code></li>
+<li>Add new fields to types in <code class="docutils literal"><span class="pre">gone/typesys.py</span></code> for relational operators.</li>
+<li>Add a new boolean type in <code class="docutils literal"><span class="pre">gone/typesys.py</span></code></li>
+<li>Make sure relations type-check properly in <code class="docutils literal"><span class="pre">gone/checker.py</span></code></li>
+<li>Add new opcodes for comparisons to <code class="docutils literal"><span class="pre">gone/ircode.py</span></code>.</li>
+<li>Add new code generation rules for LLVM in <code class="docutils literal"><span class="pre">gone/llvmgen.py</span></code>.  Add
+runtime support to <code class="docutils literal"><span class="pre">gonert.c</span></code> if necessary.</li>
+</ul>
+</div></blockquote>
+<p>Note: You should not have to make major changes (if any) to the code
+you already wrote– all of the above steps involving adding new code,
+not rewriting what you did earlier.</p>
+<p>Note: This part of the project will probably take a few hours. Take it
+easy and just work step by step.</p>
+</div>
+<div class="section" id="ir-code-generation">
+<h2>IR Code Generation<a class="headerlink" href="#ir-code-generation" title="Permalink to this headline">¶</a></h2>
+<p>The IR code specification doesn’t provide for bools.  Instead, booleans
+are represented using integers 0 and 1.   When generating the IR for
+relations and other operations, use integer operations.</p>
+</div>
+<div class="section" id="llvm-code-generation">
+<h2>LLVM Code Generation<a class="headerlink" href="#llvm-code-generation" title="Permalink to this headline">¶</a></h2>
+<p>To perform comparisons in LLVM, you need to the <code class="docutils literal"><span class="pre">icmp_signed</span></code> and
+<code class="docutils literal"><span class="pre">fcmp_ordered</span></code> methods of the builder.  Here is a guide of how to do
+numeric comparisons in LLVM:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">Integer</span> <span class="n">compares</span><span class="p">:</span>
+<span class="o">-----------------</span>
+<span class="n">builder</span><span class="o">.</span><span class="n">icmp_signed</span><span class="p">(</span><span class="s1">&#39;&lt;&#39;</span><span class="p">,</span> <span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>   <span class="c1"># left &lt; right</span>
+<span class="n">builder</span><span class="o">.</span><span class="n">icmp_signed</span><span class="p">(</span><span class="s1">&#39;&lt;=&#39;</span><span class="p">,</span> <span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>   <span class="c1"># left &lt;= right</span>
+<span class="n">builder</span><span class="o">.</span><span class="n">icmp_signed</span><span class="p">(</span><span class="s1">&#39;&gt;&#39;</span><span class="p">,</span> <span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>   <span class="c1"># left &gt; right</span>
+<span class="n">builder</span><span class="o">.</span><span class="n">icmp_signed</span><span class="p">(</span><span class="s1">&#39;&gt;=&#39;</span><span class="p">,</span> <span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>   <span class="c1"># left &gt;= right</span>
+<span class="n">builder</span><span class="o">.</span><span class="n">icmp_signed</span><span class="p">(</span><span class="s1">&#39;==&#39;</span><span class="p">,</span> <span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>    <span class="c1"># left == right</span>
+<span class="n">builder</span><span class="o">.</span><span class="n">icmp_signed</span><span class="p">(</span><span class="s1">&#39;!=&#39;</span><span class="p">,</span> <span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>    <span class="c1"># left != right</span>
+
+<span class="n">Float</span> <span class="n">compares</span><span class="p">:</span>
+<span class="o">-----------------</span>
+<span class="n">builder</span><span class="o">.</span><span class="n">fcmp_ordered</span><span class="p">(</span><span class="s1">&#39;&lt;&#39;</span><span class="p">,</span> <span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>   <span class="c1"># left &lt; right</span>
+<span class="n">builder</span><span class="o">.</span><span class="n">fcmp_ordered</span><span class="p">(</span><span class="s1">&#39;&lt;=&#39;</span><span class="p">,</span> <span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>   <span class="c1"># left &lt;= right</span>
+<span class="n">builder</span><span class="o">.</span><span class="n">fcmp_ordered</span><span class="p">(</span><span class="s1">&#39;&gt;&#39;</span><span class="p">,</span> <span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>   <span class="c1"># left &gt; right</span>
+<span class="n">builder</span><span class="o">.</span><span class="n">fcmp_ordered</span><span class="p">(</span><span class="s1">&#39;&gt;=&#39;</span><span class="p">,</span> <span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>   <span class="c1"># left &gt;= right</span>
+<span class="n">builder</span><span class="o">.</span><span class="n">fcmp_ordered</span><span class="p">(</span><span class="s1">&#39;==&#39;</span><span class="p">,</span> <span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>   <span class="c1"># left == right</span>
+<span class="n">builder</span><span class="o">.</span><span class="n">fcmp_ordered</span><span class="p">(</span><span class="s1">&#39;!=&#39;</span><span class="p">,</span> <span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>   <span class="c1"># left != right</span>
+</pre></div>
+</div>
+<p>All of the above operations return a boolean type <code class="docutils literal"><span class="pre">IntType(1)</span></code>.
+Depending on how you are doing things, you might need to take the result
+and extend it to a 32-bit integer so that it is compatible with other types.
+Use this:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">builder</span><span class="o">.</span><span class="n">zext</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">IntType</span><span class="p">(</span><span class="mi">32</span><span class="p">),</span> <span class="n">target</span><span class="p">)</span>     <span class="c1"># Zero-extend value to a new type</span>
+</pre></div>
+</div>
+<p>If you ever need to take an integer and truncate it down to a bool, you can
+use this:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">builder</span><span class="o">.</span><span class="n">trunc</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">IntType</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="n">target</span><span class="p">)</span>     <span class="c1"># Truncate an int to a bool</span>
+</pre></div>
+</div>
+<p>There are a few other instructions you’ll also need for boolean
+expressions:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">builder</span><span class="o">.</span><span class="n">and_</span><span class="p">(</span><span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>             <span class="c1"># left &amp;&amp; right</span>
+<span class="n">builder</span><span class="o">.</span><span class="n">or_</span><span class="p">(</span><span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>              <span class="c1"># left || right</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="testing">
+<h2>Testing<a class="headerlink" href="#testing" title="Permalink to this headline">¶</a></h2>
+<p>The following files can be used to test your relational and boolean operators:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">Tests</span><span class="o">/</span><span class="n">testrel_int</span><span class="o">.</span><span class="n">g</span>
+<span class="n">Tests</span><span class="o">/</span><span class="n">testrel_float</span><span class="o">.</span><span class="n">g</span>
+<span class="n">Tests</span><span class="o">/</span><span class="n">testrel_char</span><span class="o">.</span><span class="n">g</span>
+<span class="n">Tests</span><span class="o">/</span><span class="n">testrel_bad</span><span class="o">.</span><span class="n">g</span>
+</pre></div>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Project 6 - Booleans and Relations</a><ul>
+<li><a class="reference internal" href="#preliminaries">Preliminaries</a></li>
+<li><a class="reference internal" href="#overview">Overview</a></li>
+<li><a class="reference internal" href="#implementation-suggestion">Implementation Suggestion</a></li>
+<li><a class="reference internal" href="#ir-code-generation">IR Code Generation</a></li>
+<li><a class="reference internal" href="#llvm-code-generation">LLVM Code Generation</a></li>
+<li><a class="reference internal" href="#testing">Testing</a></li>
+</ul>
+</li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="Project5.html" title="previous chapter">Project 5 - LLVM Code Generation</a></li>
+      <li>Next: <a href="Project7.html" title="next chapter">Project 7 - Control Flow</a></li>
+  </ul></li>
+</ul>
+</div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/Project6.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2016, David Beazley.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.6.6</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.10</a>
+      
+      |
+      <a href="_sources/Project6.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

@@ -1,0 +1,459 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Exercise 3 - Type Checking &#8212; Write a Compiler 0.0 documentation</title>
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '0.0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true,
+        SOURCELINK_SUFFIX: '.txt'
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Exercise 4 - Code Generation" href="ex4.html" />
+    <link rel="prev" title="Exercise 2 - Parsing and Abstract Syntax Trees" href="ex2.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="exercise-3-type-checking">
+<h1>Exercise 3 - Type Checking<a class="headerlink" href="#exercise-3-type-checking" title="Permalink to this headline">¶</a></h1>
+<p><strong>IMPORTANT: It is critical to work this entire exercise before starting Project 3.</strong></p>
+<p>An important role of a compiler is to detect common programming errors
+such as undefined identifiers, bad operations, and type errors.  Let’s
+consider an example with the following Python code:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">a</span> <span class="o">=</span> <span class="mi">23</span>
+<span class="n">b</span> <span class="o">=</span> <span class="mi">42</span>
+<span class="n">c</span> <span class="o">=</span> <span class="s1">&#39;hello&#39;</span>
+<span class="n">d</span> <span class="o">=</span> <span class="n">a</span> <span class="o">+</span> <span class="mi">2</span><span class="o">*</span><span class="n">b</span>
+<span class="n">e</span> <span class="o">=</span> <span class="n">a</span> <span class="o">+</span> <span class="n">z</span>
+<span class="n">f</span> <span class="o">=</span> <span class="n">a</span> <span class="o">+</span> <span class="n">c</span>
+<span class="n">g</span> <span class="o">=</span> <span class="n">c</span> <span class="o">*</span> <span class="n">c</span>
+</pre></div>
+</div>
+<p>This code has three errors in it.  First, the name <code class="docutils literal"><span class="pre">z</span></code> is undefined so
+the statement <code class="docutils literal"><span class="pre">e</span> <span class="pre">=</span> <span class="pre">a</span> <span class="pre">+</span> <span class="pre">z</span></code> in the fifth line is going to fail.
+Second, the statement <code class="docutils literal"><span class="pre">f</span> <span class="pre">=</span> <span class="pre">a</span> <span class="pre">+</span> <span class="pre">c</span></code> has a type error in it since
+it is trying to add an integer and a string together.  Finally, the
+statement <code class="docutils literal"><span class="pre">g</span> <span class="pre">=</span> <span class="pre">c</span> <span class="pre">*</span> <span class="pre">c</span></code> has a type error since strings don’t support
+multiplication.</p>
+<p>Python defers all error checking to runtime. So, you wouldn’t find out
+about these problems until the statements execute.  However,
+suppose you wanted to have a compiler check in advance?  Let’s see how
+to do that.</p>
+<div class="section" id="parse-tree-walking-the-visitor-pattern">
+<h2>Parse Tree Walking - The Visitor Pattern<a class="headerlink" href="#parse-tree-walking-the-visitor-pattern" title="Permalink to this headline">¶</a></h2>
+<p>Start by making a file <code class="docutils literal"><span class="pre">simplecheck.py</span></code> with the following code in it:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="c1"># simplecheck.py</span>
+<span class="n">code</span> <span class="o">=</span> <span class="s1">&#39;&#39;&#39;</span>
+<span class="s1">a = 23</span>
+<span class="s1">b = 42</span>
+<span class="s1">c = &#39;hello&#39;</span>
+<span class="s1">d = a + 2*b</span>
+<span class="s1">e = a + z</span>
+<span class="s1">f = a + c</span>
+<span class="s1">g = c * c</span>
+<span class="s1">&#39;&#39;&#39;</span>
+
+<span class="kn">import</span> <span class="nn">ast</span>
+<span class="n">top</span> <span class="o">=</span> <span class="n">ast</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">code</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">ast</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">top</span><span class="p">))</span>
+</pre></div>
+</div>
+<p>This code parses a code fragment into an AST which is then printed.
+You should get output such as this (reformatted slightly):</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">Module</span><span class="p">(</span><span class="n">body</span><span class="o">=</span><span class="p">[</span><span class="n">Assign</span><span class="p">(</span><span class="n">targets</span><span class="o">=</span><span class="p">[</span><span class="n">Name</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="s1">&#39;a&#39;</span><span class="p">,</span> <span class="n">ctx</span><span class="o">=</span><span class="n">Store</span><span class="p">())],</span> <span class="n">value</span><span class="o">=</span><span class="n">Num</span><span class="p">(</span><span class="n">n</span><span class="o">=</span><span class="mi">23</span><span class="p">)),</span>
+             <span class="n">Assign</span><span class="p">(</span><span class="n">targets</span><span class="o">=</span><span class="p">[</span><span class="n">Name</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="s1">&#39;b&#39;</span><span class="p">,</span> <span class="n">ctx</span><span class="o">=</span><span class="n">Store</span><span class="p">())],</span> <span class="n">value</span><span class="o">=</span><span class="n">Num</span><span class="p">(</span><span class="n">n</span><span class="o">=</span><span class="mi">42</span><span class="p">)),</span>
+             <span class="n">Assign</span><span class="p">(</span><span class="n">targets</span><span class="o">=</span><span class="p">[</span><span class="n">Name</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="s1">&#39;c&#39;</span><span class="p">,</span> <span class="n">ctx</span><span class="o">=</span><span class="n">Store</span><span class="p">())],</span> <span class="n">value</span><span class="o">=</span><span class="n">Str</span><span class="p">(</span><span class="n">s</span><span class="o">=</span><span class="s1">&#39;hello&#39;</span><span class="p">)),</span>
+             <span class="n">Assign</span><span class="p">(</span><span class="n">targets</span><span class="o">=</span><span class="p">[</span><span class="n">Name</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="s1">&#39;d&#39;</span><span class="p">,</span> <span class="n">ctx</span><span class="o">=</span><span class="n">Store</span><span class="p">())],</span>
+                    <span class="n">value</span><span class="o">=</span><span class="n">BinOp</span><span class="p">(</span><span class="n">left</span><span class="o">=</span><span class="n">Name</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="s1">&#39;a&#39;</span><span class="p">,</span> <span class="n">ctx</span><span class="o">=</span><span class="n">Load</span><span class="p">()),</span> <span class="n">op</span><span class="o">=</span><span class="n">Add</span><span class="p">(),</span>
+                    <span class="n">right</span><span class="o">=</span><span class="n">BinOp</span><span class="p">(</span><span class="n">left</span><span class="o">=</span><span class="n">Num</span><span class="p">(</span><span class="n">n</span><span class="o">=</span><span class="mi">2</span><span class="p">),</span> <span class="n">op</span><span class="o">=</span><span class="n">Mult</span><span class="p">(),</span> <span class="n">right</span><span class="o">=</span><span class="n">Name</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="s1">&#39;b&#39;</span><span class="p">,</span>
+                    <span class="n">ctx</span><span class="o">=</span><span class="n">Load</span><span class="p">())))),</span>
+             <span class="n">Assign</span><span class="p">(</span><span class="n">targets</span><span class="o">=</span><span class="p">[</span><span class="n">Name</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="s1">&#39;e&#39;</span><span class="p">,</span> <span class="n">ctx</span><span class="o">=</span><span class="n">Store</span><span class="p">())],</span>
+                    <span class="n">value</span><span class="o">=</span><span class="n">BinOp</span><span class="p">(</span><span class="n">left</span><span class="o">=</span><span class="n">Name</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="s1">&#39;a&#39;</span><span class="p">,</span> <span class="n">ctx</span><span class="o">=</span><span class="n">Load</span><span class="p">()),</span> <span class="n">op</span><span class="o">=</span><span class="n">Add</span><span class="p">(),</span>
+                    <span class="n">right</span><span class="o">=</span><span class="n">Name</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="s1">&#39;z&#39;</span><span class="p">,</span> <span class="n">ctx</span><span class="o">=</span><span class="n">Load</span><span class="p">()))),</span>
+             <span class="n">Assign</span><span class="p">(</span><span class="n">targets</span><span class="o">=</span><span class="p">[</span><span class="n">Name</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="s1">&#39;f&#39;</span><span class="p">,</span> <span class="n">ctx</span><span class="o">=</span><span class="n">Store</span><span class="p">())],</span>
+                    <span class="n">value</span><span class="o">=</span><span class="n">BinOp</span><span class="p">(</span><span class="n">left</span><span class="o">=</span><span class="n">Name</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="s1">&#39;a&#39;</span><span class="p">,</span> <span class="n">ctx</span><span class="o">=</span><span class="n">Load</span><span class="p">()),</span> <span class="n">op</span><span class="o">=</span><span class="n">Add</span><span class="p">(),</span>
+                    <span class="n">right</span><span class="o">=</span><span class="n">Name</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="s1">&#39;c&#39;</span><span class="p">,</span> <span class="n">ctx</span><span class="o">=</span><span class="n">Load</span><span class="p">())))</span>
+             <span class="n">Assign</span><span class="p">(</span><span class="n">targets</span><span class="o">=</span><span class="p">[</span><span class="n">Name</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="s1">&#39;g&#39;</span><span class="p">,</span> <span class="n">ctx</span><span class="o">=</span><span class="n">Store</span><span class="p">())],</span>
+                    <span class="n">value</span><span class="o">=</span><span class="n">BinOp</span><span class="p">(</span><span class="n">left</span><span class="o">=</span><span class="n">Name</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="s1">&#39;c&#39;</span><span class="p">,</span> <span class="n">ctx</span><span class="o">=</span><span class="n">Load</span><span class="p">()),</span> <span class="n">op</span><span class="o">=</span><span class="n">Mult</span><span class="p">(),</span>
+                    <span class="n">right</span><span class="o">=</span><span class="n">Name</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="s1">&#39;c&#39;</span><span class="p">,</span> <span class="n">ctx</span><span class="o">=</span><span class="n">Load</span><span class="p">())))])</span>
+</pre></div>
+</div>
+<p>This is a bit messy, but within the AST you can see <code class="docutils literal"><span class="pre">Name</span></code> nodes referring to
+variable names as well as the context in which they are being used (load or store).  Let’s
+write a class that prints this out. Add this to your <code class="docutils literal"><span class="pre">simplecheck.py</span></code> file:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="c1"># simplecheck.py</span>
+<span class="o">...</span>
+<span class="k">class</span> <span class="nc">SimpleCheck</span><span class="p">(</span><span class="n">ast</span><span class="o">.</span><span class="n">NodeVisitor</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">visit_Name</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>  <span class="n">node</span><span class="p">):</span>
+        <span class="nb">print</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">node</span><span class="o">.</span><span class="n">ctx</span><span class="p">)</span>
+
+<span class="n">SimpleCheck</span><span class="p">()</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">top</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>This class is utilizing a technique known as the “visitor pattern.”
+The idea is relatively simple. There is a base class <code class="docutils literal"><span class="pre">NodeVisitor</span></code>
+that has a single method <code class="docutils literal"><span class="pre">visit(node)</span></code> which executes a traversal of
+the AST.  See the file <code class="docutils literal"><span class="pre">gone/ast.py</span></code> for an implementation (or look
+in Python’s own <code class="docutils literal"><span class="pre">ast</span></code> module).  To process different kinds of nodes,
+you subclass <code class="docutils literal"><span class="pre">NodeVisitor</span></code> and define methods such as
+<code class="docutils literal"><span class="pre">visit_Name()</span></code> above.  Whenever that node is encountered in walking
+the tree, the method will be fired.  If you run the above program,
+you’ll get output that looks like this:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">a</span> <span class="o">&lt;</span><span class="n">_ast</span><span class="o">.</span><span class="n">Store</span> <span class="nb">object</span> <span class="n">at</span> <span class="mh">0x105dd7898</span><span class="o">&gt;</span>
+<span class="n">b</span> <span class="o">&lt;</span><span class="n">_ast</span><span class="o">.</span><span class="n">Store</span> <span class="nb">object</span> <span class="n">at</span> <span class="mh">0x105dd7898</span><span class="o">&gt;</span>
+<span class="n">c</span> <span class="o">&lt;</span><span class="n">_ast</span><span class="o">.</span><span class="n">Store</span> <span class="nb">object</span> <span class="n">at</span> <span class="mh">0x105dd7898</span><span class="o">&gt;</span>
+<span class="n">d</span> <span class="o">&lt;</span><span class="n">_ast</span><span class="o">.</span><span class="n">Store</span> <span class="nb">object</span> <span class="n">at</span> <span class="mh">0x105dd7898</span><span class="o">&gt;</span>
+<span class="n">a</span> <span class="o">&lt;</span><span class="n">_ast</span><span class="o">.</span><span class="n">Load</span> <span class="nb">object</span> <span class="n">at</span> <span class="mh">0x105dd7780</span><span class="o">&gt;</span>
+<span class="n">b</span> <span class="o">&lt;</span><span class="n">_ast</span><span class="o">.</span><span class="n">Load</span> <span class="nb">object</span> <span class="n">at</span> <span class="mh">0x105dd7780</span><span class="o">&gt;</span>
+<span class="n">e</span> <span class="o">&lt;</span><span class="n">_ast</span><span class="o">.</span><span class="n">Store</span> <span class="nb">object</span> <span class="n">at</span> <span class="mh">0x105dd7898</span><span class="o">&gt;</span>
+<span class="n">a</span> <span class="o">&lt;</span><span class="n">_ast</span><span class="o">.</span><span class="n">Load</span> <span class="nb">object</span> <span class="n">at</span> <span class="mh">0x105dd7780</span><span class="o">&gt;</span>
+<span class="n">z</span> <span class="o">&lt;</span><span class="n">_ast</span><span class="o">.</span><span class="n">Load</span> <span class="nb">object</span> <span class="n">at</span> <span class="mh">0x105dd7780</span><span class="o">&gt;</span>
+<span class="n">f</span> <span class="o">&lt;</span><span class="n">_ast</span><span class="o">.</span><span class="n">Store</span> <span class="nb">object</span> <span class="n">at</span> <span class="mh">0x105dd7898</span><span class="o">&gt;</span>
+<span class="n">a</span> <span class="o">&lt;</span><span class="n">_ast</span><span class="o">.</span><span class="n">Load</span> <span class="nb">object</span> <span class="n">at</span> <span class="mh">0x105dd7780</span><span class="o">&gt;</span>
+<span class="n">c</span> <span class="o">&lt;</span><span class="n">_ast</span><span class="o">.</span><span class="n">Load</span> <span class="nb">object</span> <span class="n">at</span> <span class="mh">0x105dd7780</span><span class="o">&gt;</span>
+<span class="n">g</span> <span class="o">&lt;</span><span class="n">_ast</span><span class="o">.</span><span class="n">Store</span> <span class="nb">object</span> <span class="n">at</span> <span class="mh">0x105dd7898</span><span class="o">&gt;</span>
+<span class="n">c</span> <span class="o">&lt;</span><span class="n">_ast</span><span class="o">.</span><span class="n">Load</span> <span class="nb">object</span> <span class="n">at</span> <span class="mh">0x105dd7780</span><span class="o">&gt;</span>
+<span class="n">c</span> <span class="o">&lt;</span><span class="n">_ast</span><span class="o">.</span><span class="n">Load</span> <span class="nb">object</span> <span class="n">at</span> <span class="mh">0x105dd7780</span><span class="o">&gt;</span>
+</pre></div>
+</div>
+<p>Carefully study this output and compare it to the sample code.  The variable
+name and context should match the usage of that name in the code.</p>
+</div>
+<div class="section" id="b-symbol-tables">
+<h2>(b) Symbol Tables<a class="headerlink" href="#b-symbol-tables" title="Permalink to this headline">¶</a></h2>
+<p>To perform program checking, compilers manage a symbol table.  A
+symbol table is a mapping from identifier names to information
+about the identifier. Let’s try a really simple symbol table example.
+In this example, we modify our <code class="docutils literal"><span class="pre">SimpleCheck</span></code> class to record
+information about names being stored and loaded.  An error is reported
+for all undefined names:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">SimpleCheck</span><span class="p">(</span><span class="n">ast</span><span class="o">.</span><span class="n">NodeVisitor</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">symbols</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">visit_Name</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+        <span class="c1"># If storing, a name is added to the symbol table</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">ctx</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Store</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">symbols</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+
+        <span class="c1"># If loading, check for definition in symbol table</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">ctx</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Load</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">id</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">symbols</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Error: Name </span><span class="si">%s</span><span class="s1"> not defined&#39;</span> <span class="o">%</span> <span class="n">node</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+
+<span class="n">SimpleCheck</span><span class="p">()</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">top</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>If you run this program, you should get output like this:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">Error</span><span class="p">:</span> <span class="n">Name</span> <span class="n">z</span> <span class="ow">not</span> <span class="n">defined</span>
+</pre></div>
+</div>
+<p>Good.  You’ve found one of the errors in the code.</p>
+</div>
+<div class="section" id="introducing-types">
+<h2>Introducing Types<a class="headerlink" href="#introducing-types" title="Permalink to this headline">¶</a></h2>
+<p>In most programming languages, values have an associated type. For
+example, <code class="docutils literal"><span class="pre">23</span></code> is a number and <code class="docutils literal"><span class="pre">'hello'</span></code> is a string.  The behavior
+of various operations then depend on these types.   To build a type
+system, the first step is annotating values with type information.
+Let’s do that.   Modify the the <code class="docutils literal"><span class="pre">SimpleCheck</span></code> class like this:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">SimpleCheck</span><span class="p">(</span><span class="n">ast</span><span class="o">.</span><span class="n">NodeVisitor</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">symbols</span> <span class="o">=</span> <span class="p">{</span> <span class="p">}</span>
+
+    <span class="k">def</span> <span class="nf">visit_Num</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+        <span class="n">node</span><span class="o">.</span><span class="n">type</span> <span class="o">=</span> <span class="s1">&#39;num&#39;</span>
+
+    <span class="k">def</span> <span class="nf">visit_Str</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+        <span class="n">node</span><span class="o">.</span><span class="n">type</span> <span class="o">=</span> <span class="s1">&#39;str&#39;</span>
+
+    <span class="k">def</span> <span class="nf">visit_Assign</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+        <span class="c1"># Visit the right-hand-side value to get types assignment</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+
+        <span class="c1"># Temporarily store the right-hand-side so it&#39;s visible in other methods</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assignment_value</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">value</span>
+
+        <span class="c1"># Visit each target on the left-hand-side</span>
+        <span class="k">for</span> <span class="n">target</span> <span class="ow">in</span> <span class="n">node</span><span class="o">.</span><span class="n">targets</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">target</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">visit_Name</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+        <span class="c1"># If storing, a type is added to the symbol table (from self.assignment_value above)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">ctx</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Store</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">symbols</span><span class="p">[</span><span class="n">node</span><span class="o">.</span><span class="n">id</span><span class="p">]</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">assignment_value</span><span class="p">,</span> <span class="s1">&#39;type&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
+        <span class="c1"># If loading, check for definition in symbol table</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">ctx</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Load</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">id</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">symbols</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Error: Name </span><span class="si">%s</span><span class="s1"> not defined&#39;</span> <span class="o">%</span> <span class="n">node</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+
+<span class="n">checker</span> <span class="o">=</span> <span class="n">SimpleCheck</span><span class="p">()</span>
+<span class="n">checker</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">top</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">checker</span><span class="o">.</span><span class="n">symbols</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>This class introduces a few new ideas.  First, the symbol table has
+been changed to a dictionary. We’ve done this because we’re going to
+make a mapping from names to type information. Next, methods have
+been added for <code class="docutils literal"><span class="pre">Num</span></code> and <code class="docutils literal"><span class="pre">Str</span></code> nodes.  In these methods, a
+<code class="docutils literal"><span class="pre">type</span></code> attribute is added to the AST node.  For now, this is set to a
+simple type name.  An important thing about these methods is that they
+are the entry point for types being used elsewhere (types are associated
+with values).</p>
+<p>Next, a new method has been added for the <code class="docutils literal"><span class="pre">Assign</span></code> node.  This
+method visits the assigned value first in order to figure out its
+type.  The method then sets an attribute (<code class="docutils literal"><span class="pre">assignment_value</span></code>) to temporarily record the
+right-hand-side of the assignment before visiting each of the
+assignment targets one-by-one.  The <code class="docutils literal"><span class="pre">visit_Name()</span></code> method is
+modified slightly to store the type of the assigned value in the
+symbol table.  Note: The whole arrangement of this is tricky. Carefully
+study the code and make sure you understand what’s happening.</p>
+<p>If you run this modified code, you should get output like this:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">Error</span><span class="p">:</span> <span class="n">Name</span> <span class="n">z</span> <span class="ow">not</span> <span class="n">defined</span>
+<span class="p">{</span><span class="s1">&#39;b&#39;</span><span class="p">:</span> <span class="s1">&#39;num&#39;</span><span class="p">,</span> <span class="s1">&#39;e&#39;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span> <span class="s1">&#39;d&#39;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span> <span class="s1">&#39;c&#39;</span><span class="p">:</span> <span class="s1">&#39;str&#39;</span><span class="p">,</span> <span class="s1">&#39;a&#39;</span><span class="p">:</span> <span class="s1">&#39;num&#39;</span><span class="p">,</span> <span class="s1">&#39;f&#39;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span> <span class="s1">&#39;g&#39;</span><span class="p">:</span> <span class="kc">None</span><span class="p">}</span>
+</pre></div>
+</div>
+<p>As before, you’ll get output about the undefined variable <code class="docutils literal"><span class="pre">z</span></code>. You’ll
+also get a dictionary showing known type information for different
+variables.   For simple assignments such as <code class="docutils literal"><span class="pre">a</span> <span class="pre">=</span> <span class="pre">23</span></code>, you’ll
+see the symbol table recording a type of <code class="docutils literal"><span class="pre">'num'</span></code>.  Good, this is
+what you want.  For complex assignments such as <code class="docutils literal"><span class="pre">d</span> <span class="pre">=</span> <span class="pre">a</span> <span class="pre">+</span> <span class="pre">2*b</span></code>, the
+type is set to <code class="docutils literal"><span class="pre">None</span></code> however.  We need to fix that.</p>
+</div>
+<div class="section" id="type-propagation">
+<h2>Type Propagation<a class="headerlink" href="#type-propagation" title="Permalink to this headline">¶</a></h2>
+<p>To gather more information about types, you need to propagate
+information in operations where values are used (e.g., expressions,
+etc.).  To do this, add a method <code class="docutils literal"><span class="pre">visit_BinOp()</span></code> and modify
+<code class="docutils literal"><span class="pre">visit_Name()</span></code>.  These methods are now going to attach a <code class="docutils literal"><span class="pre">type</span></code>
+attribute to their associated AST node:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">SimpleCheck</span><span class="p">(</span><span class="n">ast</span><span class="o">.</span><span class="n">NodeVisitor</span><span class="p">):</span>
+    <span class="o">...</span>
+
+    <span class="k">def</span> <span class="nf">visit_Name</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+        <span class="c1"># If storing, a type is added to the symbol table (from self.assignment_value above)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">ctx</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Store</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">symbols</span><span class="p">[</span><span class="n">node</span><span class="o">.</span><span class="n">id</span><span class="p">]</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">assignment_value</span><span class="p">,</span> <span class="s1">&#39;type&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
+        <span class="c1"># If loading, check definition in symbol table and attach type</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">ctx</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Load</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">id</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">symbols</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Error: Name </span><span class="si">%s</span><span class="s1"> not defined&#39;</span> <span class="o">%</span> <span class="n">node</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># Attach known type information to the node (from symbol table)</span>
+                <span class="n">node</span><span class="o">.</span><span class="n">type</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">symbols</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">visit_BinOp</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">left</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">right</span><span class="p">)</span>
+        <span class="c1"># Propagate the type from the left operand to the result</span>
+        <span class="n">node</span><span class="o">.</span><span class="n">type</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">left</span><span class="p">,</span> <span class="s1">&#39;type&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
+<span class="n">checker</span> <span class="o">=</span> <span class="n">SimpleCheck</span><span class="p">()</span>
+<span class="n">checker</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">top</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">checker</span><span class="o">.</span><span class="n">symbols</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>If you run this program, you’ll now get this output:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">Error</span><span class="p">:</span> <span class="n">Name</span> <span class="n">z</span> <span class="ow">not</span> <span class="n">defined</span>
+<span class="p">{</span><span class="s1">&#39;b&#39;</span><span class="p">:</span> <span class="s1">&#39;num&#39;</span><span class="p">,</span> <span class="s1">&#39;e&#39;</span><span class="p">:</span> <span class="s1">&#39;num&#39;</span><span class="p">,</span> <span class="s1">&#39;d&#39;</span><span class="p">:</span> <span class="s1">&#39;num&#39;</span><span class="p">,</span> <span class="s1">&#39;c&#39;</span><span class="p">:</span> <span class="s1">&#39;str&#39;</span><span class="p">,</span> <span class="s1">&#39;a&#39;</span><span class="p">:</span> <span class="s1">&#39;num&#39;</span><span class="p">,</span> <span class="s1">&#39;f&#39;</span><span class="p">:</span> <span class="s1">&#39;num&#39;</span><span class="p">,</span> <span class="s1">&#39;g&#39;</span><span class="p">:</span> <span class="s1">&#39;str&#39;</span><span class="p">}</span>
+</pre></div>
+</div>
+<p>Carefully observe that types have propagated to all of the variable names.  We’re
+still not finding the type error in the assignment to <code class="docutils literal"><span class="pre">f</span> <span class="pre">=</span> <span class="pre">a</span> <span class="pre">+</span> <span class="pre">c</span></code> though. Continue.</p>
+</div>
+<div class="section" id="type-checking">
+<h2>Type Checking<a class="headerlink" href="#type-checking" title="Permalink to this headline">¶</a></h2>
+<p>Modify the <code class="docutils literal"><span class="pre">visit_BinOp()</span></code> method so that it looks like this:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">visit_BinOp</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">left</span><span class="p">)</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">right</span><span class="p">)</span>
+    <span class="n">left_type</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">left</span><span class="p">,</span> <span class="s1">&#39;type&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="n">right_type</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">right</span><span class="p">,</span> <span class="s1">&#39;type&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">left_type</span> <span class="o">!=</span> <span class="n">right_type</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Error: Type error.  </span><span class="si">%s</span><span class="s1"> </span><span class="si">%s</span><span class="s1"> </span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">left_type</span><span class="p">,</span> <span class="nb">type</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">op</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">right_type</span><span class="p">))</span>
+        <span class="n">node</span><span class="o">.</span><span class="n">type</span> <span class="o">=</span> <span class="s1">&#39;error&#39;</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">node</span><span class="o">.</span><span class="n">type</span> <span class="o">=</span> <span class="n">left_type</span>
+</pre></div>
+</div>
+<p>In this code, we’ve added some code to check that the left and right hand sides of a
+binary operator are the same type.  If not, an error is indicated.  Run the program
+and you should now get this:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">Error</span><span class="p">:</span> <span class="n">Name</span> <span class="n">z</span> <span class="ow">not</span> <span class="n">defined</span>
+<span class="n">Error</span><span class="p">:</span> <span class="n">Type</span> <span class="n">error</span><span class="o">.</span>  <span class="n">num</span> <span class="n">Add</span> <span class="kc">None</span>
+<span class="n">Error</span><span class="p">:</span> <span class="n">Type</span> <span class="n">error</span><span class="o">.</span>  <span class="n">num</span> <span class="n">Add</span> <span class="nb">str</span>
+<span class="p">{</span><span class="s1">&#39;d&#39;</span><span class="p">:</span> <span class="s1">&#39;num&#39;</span><span class="p">,</span> <span class="s1">&#39;e&#39;</span><span class="p">:</span> <span class="s1">&#39;error&#39;</span><span class="p">,</span> <span class="s1">&#39;a&#39;</span><span class="p">:</span> <span class="s1">&#39;num&#39;</span><span class="p">,</span> <span class="s1">&#39;b&#39;</span><span class="p">:</span> <span class="s1">&#39;num&#39;</span><span class="p">,</span> <span class="s1">&#39;f&#39;</span><span class="p">:</span> <span class="s1">&#39;error&#39;</span><span class="p">,</span> <span class="s1">&#39;c&#39;</span><span class="p">:</span> <span class="s1">&#39;str&#39;</span><span class="p">,</span> <span class="s1">&#39;g&#39;</span><span class="p">:</span> <span class="s1">&#39;str&#39;</span><span class="p">}</span>
+</pre></div>
+</div>
+<p>Excellent.  By the way, the reason you get two type-error messages is that the
+expression <code class="docutils literal"><span class="pre">a</span> <span class="pre">+</span> <span class="pre">z</span></code> is still checked even though <code class="docutils literal"><span class="pre">z</span></code> is an undefined variable
+name.  You could probably suppress that error, but for now it’s fine.</p>
+</div>
+<div class="section" id="type-capabilities">
+<h2>Type Capabilities<a class="headerlink" href="#type-capabilities" title="Permalink to this headline">¶</a></h2>
+<p>Our code almost works, but it’s still missing one of the type errors.
+The statement <code class="docutils literal"><span class="pre">g</span> <span class="pre">=</span> <span class="pre">c</span> <span class="pre">*</span> <span class="pre">c</span></code> should fail because strings don’t allow
+multiplication.  In order to handle this, you need to build some
+concept of type capabilities.  For example, the idea that
+multiplication works for numbers, but not for strings.  There are
+also some oddities in result types. For example, multiplying a string
+by a number is allowed and produces a string.</p>
+<p>There are MANY ways to structure this, but in the interest of brevity,
+let’s specify capabilities as a dict of operators, types, and result types.
+Try this code:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="c1"># simplecheck.py</span>
+
+<span class="c1"># dict mapping valid type/operator combinations to result types</span>
+<span class="n">supported_binops</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="p">(</span><span class="s1">&#39;num&#39;</span><span class="p">,</span> <span class="s1">&#39;Add&#39;</span><span class="p">,</span> <span class="s1">&#39;num&#39;</span><span class="p">)</span> <span class="p">:</span> <span class="s1">&#39;num&#39;</span><span class="p">,</span>
+    <span class="p">(</span><span class="s1">&#39;num&#39;</span><span class="p">,</span> <span class="s1">&#39;Mult&#39;</span><span class="p">,</span> <span class="s1">&#39;num&#39;</span><span class="p">)</span> <span class="p">:</span> <span class="s1">&#39;num&#39;</span><span class="p">,</span>
+    <span class="p">(</span><span class="s1">&#39;num&#39;</span><span class="p">,</span> <span class="s1">&#39;Sub&#39;</span><span class="p">,</span> <span class="s1">&#39;num&#39;</span><span class="p">)</span> <span class="p">:</span> <span class="s1">&#39;num&#39;</span><span class="p">,</span>
+    <span class="p">(</span><span class="s1">&#39;num&#39;</span><span class="p">,</span> <span class="s1">&#39;Div&#39;</span><span class="p">,</span> <span class="s1">&#39;num&#39;</span><span class="p">)</span> <span class="p">:</span> <span class="s1">&#39;num&#39;</span><span class="p">,</span>
+    <span class="p">(</span><span class="s1">&#39;string&#39;</span><span class="p">,</span> <span class="s1">&#39;Add&#39;</span><span class="p">,</span> <span class="s1">&#39;string&#39;</span><span class="p">)</span> <span class="p">:</span> <span class="s1">&#39;string&#39;</span><span class="p">,</span>
+    <span class="p">(</span><span class="s1">&#39;string&#39;</span><span class="p">,</span> <span class="s1">&#39;Mult&#39;</span><span class="p">,</span> <span class="s1">&#39;num&#39;</span><span class="p">)</span> <span class="p">:</span> <span class="s1">&#39;string&#39;</span><span class="p">,</span>
+    <span class="p">(</span><span class="s1">&#39;num&#39;</span><span class="p">,</span> <span class="s1">&#39;Mult&#39;</span><span class="p">,</span> <span class="s1">&#39;string&#39;</span><span class="p">)</span> <span class="p">:</span> <span class="s1">&#39;string&#39;</span>
+<span class="p">}</span>
+
+<span class="k">class</span> <span class="nc">SimpleCheck</span><span class="p">(</span><span class="n">ast</span><span class="o">.</span><span class="n">NodeVisitor</span><span class="p">):</span>
+    <span class="o">...</span>
+
+    <span class="k">def</span> <span class="nf">visit_BinOp</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">left</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">right</span><span class="p">)</span>
+        <span class="n">left_type</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">left</span><span class="p">,</span> <span class="s1">&#39;type&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">right_type</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">right</span><span class="p">,</span> <span class="s1">&#39;type&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">op</span> <span class="o">=</span> <span class="nb">type</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">op</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">left_type</span><span class="p">,</span> <span class="n">op</span><span class="p">,</span> <span class="n">right_type</span><span class="p">)</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">supported_binops</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Error: Type error.  </span><span class="si">%s</span><span class="s1"> </span><span class="si">%s</span><span class="s1"> </span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">left_type</span><span class="p">,</span> <span class="n">op</span><span class="p">,</span> <span class="n">right_type</span><span class="p">))</span>
+            <span class="n">node</span><span class="o">.</span><span class="n">type</span> <span class="o">=</span> <span class="s1">&#39;error&#39;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">node</span><span class="o">.</span><span class="n">type</span> <span class="o">=</span> <span class="n">supported_binops</span><span class="p">[</span><span class="n">left_type</span><span class="p">,</span> <span class="n">op</span><span class="p">,</span> <span class="n">right_type</span><span class="p">]</span>
+     <span class="o">...</span>
+</pre></div>
+</div>
+<p>If you run this final code, you’ll get this output:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">Error</span><span class="p">:</span> <span class="n">Name</span> <span class="n">z</span> <span class="ow">not</span> <span class="n">defined</span>
+<span class="n">Error</span><span class="p">:</span> <span class="n">Type</span> <span class="n">error</span><span class="o">.</span>  <span class="n">num</span> <span class="n">Add</span> <span class="kc">None</span>
+<span class="n">Error</span><span class="p">:</span> <span class="n">Type</span> <span class="n">error</span><span class="o">.</span>  <span class="n">num</span> <span class="n">Add</span> <span class="nb">str</span>
+<span class="n">Error</span><span class="p">:</span> <span class="n">Type</span> <span class="n">error</span><span class="o">.</span>  <span class="nb">str</span> <span class="n">Mult</span> <span class="nb">str</span>
+<span class="p">{</span><span class="s1">&#39;b&#39;</span><span class="p">:</span> <span class="s1">&#39;num&#39;</span><span class="p">,</span> <span class="s1">&#39;g&#39;</span><span class="p">:</span> <span class="s1">&#39;error&#39;</span><span class="p">,</span> <span class="s1">&#39;d&#39;</span><span class="p">:</span> <span class="s1">&#39;num&#39;</span><span class="p">,</span> <span class="s1">&#39;c&#39;</span><span class="p">:</span> <span class="s1">&#39;str&#39;</span><span class="p">,</span> <span class="s1">&#39;e&#39;</span><span class="p">:</span> <span class="s1">&#39;error&#39;</span><span class="p">,</span> <span class="s1">&#39;f&#39;</span><span class="p">:</span> <span class="s1">&#39;error&#39;</span><span class="p">,</span> <span class="s1">&#39;a&#39;</span><span class="p">:</span> <span class="s1">&#39;num&#39;</span><span class="p">}</span>
+</pre></div>
+</div>
+<p>Excellent!  You’ve found all of the type errors.  This is the general idea.</p>
+</div>
+<div class="section" id="discussion">
+<h2>Discussion<a class="headerlink" href="#discussion" title="Permalink to this headline">¶</a></h2>
+<p>In your compiler project, you are going to take all of the ideas
+discussed in this exercise and apply them to your compiler.
+Specifically:</p>
+<ul class="simple">
+<li>You’ll need to write visitor classes for analyzing the AST and reporting errors.</li>
+<li>You’ll need to add a symbol table for recording information about identifiers</li>
+<li>You’ll need to figure out some way to describe types.</li>
+<li>You’ll need to propagate type information across AST nodes</li>
+<li>You’ll need to think about ways to encode type capabilities and other details</li>
+</ul>
+<p>One thing to keep in mind is that there is much more to type checking
+than presented here.  In some sense, this is just a shell of the idea.
+There are potentially other nasty things like automatic type
+conversions (e.g., int to float coercion), operations involving mixed
+types, and so forth.  For now, let’s put some of these concerns on the
+backburner.</p>
+<p>Proceed to Project 3.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Exercise 3 - Type Checking</a><ul>
+<li><a class="reference internal" href="#parse-tree-walking-the-visitor-pattern">Parse Tree Walking - The Visitor Pattern</a></li>
+<li><a class="reference internal" href="#b-symbol-tables">(b) Symbol Tables</a></li>
+<li><a class="reference internal" href="#introducing-types">Introducing Types</a></li>
+<li><a class="reference internal" href="#type-propagation">Type Propagation</a></li>
+<li><a class="reference internal" href="#type-checking">Type Checking</a></li>
+<li><a class="reference internal" href="#type-capabilities">Type Capabilities</a></li>
+<li><a class="reference internal" href="#discussion">Discussion</a></li>
+</ul>
+</li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="ex2.html" title="previous chapter">Exercise 2  - Parsing and Abstract Syntax Trees</a></li>
+      <li>Next: <a href="ex4.html" title="next chapter">Exercise 4 - Code Generation</a></li>
+  </ul></li>
+</ul>
+</div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/ex3.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2016, David Beazley.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.6.6</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.10</a>
+      
+      |
+      <a href="_sources/ex3.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

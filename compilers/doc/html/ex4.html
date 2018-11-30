@@ -1,0 +1,242 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Exercise 4 - Code Generation &#8212; Write a Compiler 0.0 documentation</title>
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '0.0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true,
+        SOURCELINK_SUFFIX: '.txt'
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Exercise 5 - Introducing LLVM" href="ex5.html" />
+    <link rel="prev" title="Exercise 3 - Type Checking" href="ex3.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="exercise-4-code-generation">
+<h1>Exercise 4 - Code Generation<a class="headerlink" href="#exercise-4-code-generation" title="Permalink to this headline">¶</a></h1>
+<p>In earlier exercises, you looked at how Python represents abstract
+syntax trees and wrote some code to walk through the trees.  In this
+exercise, we look at how to generate low-level code from an AST.</p>
+<div class="section" id="python-machine-code">
+<h2>Python Machine Code<a class="headerlink" href="#python-machine-code" title="Permalink to this headline">¶</a></h2>
+<p>When you write Python functions, they get compiled down to a low-level
+interpreter machine code.   You can view the code using the <code class="docutils literal"><span class="pre">dis</span></code> module.
+Try it:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="k">def</span> <span class="nf">foo</span><span class="p">():</span>
+<span class="go">        return a + 2*b - 3*c</span>
+
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">dis</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">dis</span><span class="o">.</span><span class="n">dis</span><span class="p">(</span><span class="n">foo</span><span class="p">)</span>
+<span class="go">  2           0 LOAD_GLOBAL              0 (a)</span>
+<span class="go">              3 LOAD_CONST               1 (2)</span>
+<span class="go">              6 LOAD_GLOBAL              1 (b)</span>
+<span class="go">              9 BINARY_MULTIPLY</span>
+<span class="go">             10 BINARY_ADD</span>
+<span class="go">             11 LOAD_CONST               2 (3)</span>
+<span class="go">             14 LOAD_GLOBAL              2 (c)</span>
+<span class="go">             17 BINARY_MULTIPLY</span>
+<span class="go">             18 BINARY_SUBTRACT</span>
+<span class="go">             19 RETURN_VALUE</span>
+<span class="go">&gt;&gt;&gt;</span>
+</pre></div>
+</div>
+<p>Python’s machine code is based on a simple stack machine. To carry out operations, operands
+are first pushed onto a stack.  Different operations then consume entries on the stack
+and replace the top entry with the result.  Here is an example:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Evaluate a = 1 + 2*3 - 4*5  using a stack machine</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">stack</span> <span class="o">=</span> <span class="p">[]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">stack</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">stack</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">stack</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">stack</span>
+<span class="go">[1, 2, 3]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">stack</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">:]</span> <span class="o">=</span> <span class="p">[</span><span class="n">stack</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span> <span class="o">*</span> <span class="n">stack</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">stack</span>
+<span class="go">[1, 6]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">stack</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">:]</span> <span class="o">=</span> <span class="p">[</span><span class="n">stack</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span> <span class="o">+</span> <span class="n">stack</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">stack</span>
+<span class="go">[7]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">stack</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">stack</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">stack</span>
+<span class="go">[7, 4, 5]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">stack</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">:]</span> <span class="o">=</span> <span class="p">[</span><span class="n">stack</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span> <span class="o">*</span> <span class="n">stack</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">stack</span>
+<span class="go">[7, 20]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">stack</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">:]</span> <span class="o">=</span> <span class="p">[</span><span class="n">stack</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span> <span class="o">-</span> <span class="n">stack</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">stack</span>
+<span class="go">[-13]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">a</span> <span class="o">=</span> <span class="n">stack</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">a</span>
+<span class="go">-13</span>
+<span class="go">&gt;&gt;&gt;</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="turning-an-ast-into-machine-code">
+<h2>Turning an AST into machine code<a class="headerlink" href="#turning-an-ast-into-machine-code" title="Permalink to this headline">¶</a></h2>
+<p>To turn an AST into machine code, you walk the AST and turn each AST node
+into a sequence of low-level machine instructions.  One way to represent
+instructions is as tuples of the form (opcode, …).</p>
+<p>First, let’s get the AST for expression in the Python function you just defined:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">ast</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">top</span> <span class="o">=</span> <span class="n">ast</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="s2">&quot;a + 2*b - 3*c&quot;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">ast</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">top</span><span class="p">))</span>
+<span class="go">Module(body=[Expr(value=BinOp(left=BinOp(left=Name(id=&#39;a&#39;,ctx=Load()),</span>
+<span class="go">             op=Add(), right=BinOp(left=Num(n=2), op=Mult(),</span>
+<span class="go">             right=Name(id=&#39;b&#39;, ctx=Load()))), op=Sub(),</span>
+<span class="go">             right=BinOp(left=Num(n=3), op=Mult(), right=Name(id=&#39;c&#39;,</span>
+<span class="go">             ctx=Load()))))])</span>
+<span class="go">&gt;&gt;&gt;</span>
+</pre></div>
+</div>
+<p>Let’s generate code.  Define the following class:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">ast</span>
+<span class="k">class</span> <span class="nc">CodeGenerator</span><span class="p">(</span><span class="n">ast</span><span class="o">.</span><span class="n">NodeVisitor</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">code</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">def</span> <span class="nf">visit_BinOp</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">node</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">left</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">right</span><span class="p">)</span>
+        <span class="n">opname</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">op</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span>
+        <span class="n">inst</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;BINARY_&quot;</span><span class="o">+</span><span class="n">opname</span><span class="o">.</span><span class="n">upper</span><span class="p">(),)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">code</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">inst</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">visit_Name</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">node</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">ctx</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Load</span><span class="p">):</span>
+            <span class="n">inst</span> <span class="o">=</span> <span class="p">(</span><span class="s1">&#39;LOAD_GLOBAL&#39;</span><span class="p">,</span><span class="n">node</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">inst</span> <span class="o">=</span> <span class="p">(</span><span class="s1">&#39;Unimplemented&#39;</span><span class="p">,)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">code</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">inst</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">visit_Num</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">node</span><span class="p">):</span>
+        <span class="n">inst</span> <span class="o">=</span> <span class="p">(</span><span class="s1">&#39;LOAD_CONST&#39;</span><span class="p">,</span><span class="n">node</span><span class="o">.</span><span class="n">n</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">code</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">inst</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Now, let’s use it to generate low-level machine instructions:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">top</span> <span class="o">=</span> <span class="n">ast</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="s2">&quot;a + 2*b - 3*c&quot;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">gen</span> <span class="o">=</span> <span class="n">CodeGenerator</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">gen</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">top</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">gen</span><span class="o">.</span><span class="n">code</span>
+<span class="go">[(&#39;LOAD_GLOBAL&#39;, &#39;a&#39;), (&#39;LOAD_CONST&#39;, 2), (&#39;LOAD_GLOBAL&#39;, &#39;b&#39;), (&#39;BINARY_MULT&#39;,), (&#39;BINARY_ADD&#39;,),</span>
+<span class="go"> (&#39;LOAD_CONST&#39;, 3), (&#39;LOAD_GLOBAL&#39;, &#39;c&#39;), (&#39;BINARY_MULT&#39;,), (&#39;BINARY_SUB&#39;,)]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">for</span> <span class="n">inst</span> <span class="ow">in</span> <span class="n">gen</span><span class="o">.</span><span class="n">code</span><span class="p">:</span>
+<span class="go">        print(inst)</span>
+
+<span class="go">(&#39;LOAD_GLOBAL&#39;, &#39;a&#39;)</span>
+<span class="go">(&#39;LOAD_CONST&#39;, 2)</span>
+<span class="go">(&#39;LOAD_GLOBAL&#39;, &#39;b&#39;)</span>
+<span class="go">(&#39;BINARY_MULT&#39;,)</span>
+<span class="go">(&#39;BINARY_ADD&#39;,)</span>
+<span class="go">(&#39;LOAD_CONST&#39;, 3)</span>
+<span class="go">(&#39;LOAD_GLOBAL&#39;, &#39;c&#39;)</span>
+<span class="go">(&#39;BINARY_MULT&#39;,)</span>
+<span class="go">(&#39;BINARY_SUB&#39;,)</span>
+<span class="go">&gt;&gt;&gt;</span>
+</pre></div>
+</div>
+<p>Observe: Your generated code from the AST is virtually identical to that
+produced by the disassembly of the earlier function.   To fully generate
+code, you’d need to flesh out the <code class="docutils literal"><span class="pre">CodeGenerator</span></code> class so that it
+covers all possible AST nodes, but the overall idea is the same.</p>
+</div>
+<div class="section" id="discussion">
+<h2>Discussion<a class="headerlink" href="#discussion" title="Permalink to this headline">¶</a></h2>
+<p>Code generation is often not much more than what we have done here.
+Essentially you’re going to traverse the AST and create a sequence of
+low-level instructions for carrying out operations.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Exercise 4 - Code Generation</a><ul>
+<li><a class="reference internal" href="#python-machine-code">Python Machine Code</a></li>
+<li><a class="reference internal" href="#turning-an-ast-into-machine-code">Turning an AST into machine code</a></li>
+<li><a class="reference internal" href="#discussion">Discussion</a></li>
+</ul>
+</li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="ex3.html" title="previous chapter">Exercise 3 - Type Checking</a></li>
+      <li>Next: <a href="ex5.html" title="next chapter">Exercise 5 - Introducing LLVM</a></li>
+  </ul></li>
+</ul>
+</div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/ex4.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2016, David Beazley.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.6.6</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.10</a>
+      
+      |
+      <a href="_sources/ex4.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

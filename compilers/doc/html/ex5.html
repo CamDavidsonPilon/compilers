@@ -1,0 +1,619 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Exercise 5 - Introducing LLVM &#8212; Write a Compiler 0.0 documentation</title>
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '0.0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true,
+        SOURCELINK_SUFFIX: '.txt'
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Exercise 6 - Relations and Booleans" href="ex6.html" />
+    <link rel="prev" title="Exercise 4 - Code Generation" href="ex4.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="exercise-5-introducing-llvm">
+<h1>Exercise 5 - Introducing LLVM<a class="headerlink" href="#exercise-5-introducing-llvm" title="Permalink to this headline">¶</a></h1>
+<p>LLVM is a compiler writing framework that addresses many of the
+problems with emitting low-level machine code.  However, it can also
+be daunting to jump into.  If you’re using developer tools such as
+XCode on the Mac, you’re using LLVM.  The clang C/C++ compiler is
+written on top of LLVM.  It is also used to implement various Just In
+Time (JIT) compilation tools.</p>
+<p>In this exercise, we’re going to introduce the basics of creating LLVM
+code.  To do this, we’re going to use the <code class="docutils literal"><span class="pre">llvmlite</span></code> package
+developed by Continuum Analytics.  This is available in the Anaconda
+Python distribution so if you’re using that, you should already have
+it.</p>
+<div class="section" id="llvm-preliminaries">
+<h2>LLVM Preliminaries<a class="headerlink" href="#llvm-preliminaries" title="Permalink to this headline">¶</a></h2>
+<p>Your first task is to make sure Anaconda Python and the clang C/C++
+compiler have been installed on your machine. Please review the README
+file for the compilers project regarding installation notes.</p>
+</div>
+<div class="section" id="hello-world">
+<h2>Hello World<a class="headerlink" href="#hello-world" title="Permalink to this headline">¶</a></h2>
+<p>The first step in using LLVM is to make a LLVM module which contains
+all of the code you will be generating.  Create a file
+<code class="docutils literal"><span class="pre">hellollvm.py</span></code> and put this code into it:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="c1"># hellollvm.py</span>
+<span class="kn">from</span> <span class="nn">llvmlite.ir</span> <span class="k">import</span> <span class="n">Module</span>
+
+<span class="n">mod</span> <span class="o">=</span> <span class="n">Module</span><span class="p">(</span><span class="s1">&#39;hello&#39;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">mod</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Run the program and you should get some output like this:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">bash</span> <span class="o">%</span> <span class="n">python3</span> <span class="n">hellollvm</span><span class="o">.</span><span class="n">py</span>
+<span class="p">;</span> <span class="n">ModuleID</span> <span class="o">=</span> <span class="s2">&quot;hello&quot;</span>
+<span class="n">target</span> <span class="n">triple</span> <span class="o">=</span> <span class="s2">&quot;unknown-unknown-unknown&quot;</span>
+<span class="n">target</span> <span class="n">datalayout</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+
+<span class="n">bash</span> <span class="o">%</span>
+</pre></div>
+</div>
+<p>The output you’re using is LLVM low-level code–a kind of architecture
+independent assembly language. At this point, it’s not too
+interesting.  However, let’s declare a function to put in the module.
+Change the program to the following to declare a function with the C
+prototype <code class="docutils literal"><span class="pre">int</span> <span class="pre">hello()</span></code>:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="c1"># hellollvm.py</span>
+
+<span class="kn">from</span> <span class="nn">llvmlite.ir</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Module</span><span class="p">,</span> <span class="n">Function</span><span class="p">,</span> <span class="n">FunctionType</span><span class="p">,</span> <span class="n">IntType</span>
+    <span class="p">)</span>
+
+<span class="n">mod</span> <span class="o">=</span> <span class="n">Module</span><span class="p">(</span><span class="s1">&#39;hello&#39;</span><span class="p">)</span>
+<span class="n">hello_func</span> <span class="o">=</span> <span class="n">Function</span><span class="p">(</span><span class="n">mod</span><span class="p">,</span> <span class="n">FunctionType</span><span class="p">(</span><span class="n">IntType</span><span class="p">(</span><span class="mi">32</span><span class="p">),</span> <span class="p">[]),</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;hello&#39;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">mod</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Running the program, you should now get the following:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">bash</span> <span class="o">%</span> <span class="n">python3</span> <span class="n">hellollvm</span><span class="o">.</span><span class="n">py</span>
+<span class="p">;</span> <span class="n">ModuleID</span> <span class="o">=</span> <span class="s2">&quot;hello&quot;</span>
+<span class="n">target</span> <span class="n">triple</span> <span class="o">=</span> <span class="s2">&quot;unknown-unknown-unknown&quot;</span>
+<span class="n">target</span> <span class="n">datalayout</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+
+<span class="n">declare</span> <span class="n">i32</span> <span class="o">@</span><span class="s2">&quot;hello&quot;</span><span class="p">()</span>
+
+<span class="n">bash</span> <span class="o">%</span>
+</pre></div>
+</div>
+<p>Again, it’s not too interesting at this point.  However, you can see
+how a function declaration was placed in the module output. The LLVM
+statement <code class="docutils literal"><span class="pre">declare</span> <span class="pre">i32</span> <span class="pre">&#64;&quot;hello&quot;()</span></code> is declaring a function that
+returns a 32-bit integer and takes no arguments.</p>
+<p>Let’s add some code to the function.  To do this, you first need to
+create a basic block. A basic block is a container that holds
+low-level instructions.  Add the following to the program:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="c1"># hellollvm.py</span>
+
+<span class="kn">from</span> <span class="nn">llvmlite.ir</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Module</span><span class="p">,</span> <span class="n">Function</span><span class="p">,</span> <span class="n">FunctionType</span><span class="p">,</span> <span class="n">IntType</span>
+    <span class="p">)</span>
+
+<span class="n">mod</span> <span class="o">=</span> <span class="n">Module</span><span class="p">(</span><span class="s1">&#39;hello&#39;</span><span class="p">)</span>
+<span class="n">hello_func</span> <span class="o">=</span> <span class="n">Function</span><span class="p">(</span><span class="n">mod</span><span class="p">,</span> <span class="n">FunctionType</span><span class="p">(</span><span class="n">IntType</span><span class="p">(</span><span class="mi">32</span><span class="p">),</span> <span class="p">[]),</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;hello&#39;</span><span class="p">)</span>
+<span class="n">block</span> <span class="o">=</span> <span class="n">hello_func</span><span class="o">.</span><span class="n">append_basic_block</span><span class="p">(</span><span class="s1">&#39;entry&#39;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">mod</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>When you run the program, you should now get this output:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="p">;</span> <span class="n">ModuleID</span> <span class="o">=</span> <span class="s2">&quot;hello&quot;</span>
+<span class="n">target</span> <span class="n">triple</span> <span class="o">=</span> <span class="s2">&quot;unknown-unknown-unknown&quot;</span>
+<span class="n">target</span> <span class="n">datalayout</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+
+<span class="n">define</span> <span class="n">i32</span> <span class="o">@</span><span class="s2">&quot;hello&quot;</span><span class="p">()</span>
+<span class="p">{</span>
+<span class="n">entry</span><span class="p">:</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Notice how the function declaration has changed into an actual
+function definition and a code label <code class="docutils literal"><span class="pre">entry:</span></code> has been inserted.</p>
+<p>Finally, let’s add an instruction to the block.  To do this, you need
+to create a <code class="docutils literal"><span class="pre">IRBuilder</span></code> object.  A builder is a class that makes it
+easy to add instructions to a block.  Modify the program to make the
+function return a constant value 37:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="c1"># hellollvm.py</span>
+
+<span class="kn">from</span> <span class="nn">llvmlite.ir</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Module</span><span class="p">,</span> <span class="n">Function</span><span class="p">,</span> <span class="n">FunctionType</span><span class="p">,</span> <span class="n">IntType</span><span class="p">,</span>
+    <span class="n">Constant</span><span class="p">,</span> <span class="n">IRBuilder</span>
+    <span class="p">)</span>
+
+<span class="n">mod</span> <span class="o">=</span> <span class="n">Module</span><span class="p">(</span><span class="s1">&#39;hello&#39;</span><span class="p">)</span>
+<span class="n">hello_func</span> <span class="o">=</span> <span class="n">Function</span><span class="p">(</span><span class="n">mod</span><span class="p">,</span> <span class="n">FunctionType</span><span class="p">(</span><span class="n">IntType</span><span class="p">(</span><span class="mi">32</span><span class="p">),</span> <span class="p">[]),</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;hello&#39;</span><span class="p">)</span>
+<span class="n">block</span> <span class="o">=</span> <span class="n">hello_func</span><span class="o">.</span><span class="n">append_basic_block</span><span class="p">(</span><span class="s1">&#39;entry&#39;</span><span class="p">)</span>
+<span class="n">builder</span> <span class="o">=</span> <span class="n">IRBuilder</span><span class="p">(</span><span class="n">block</span><span class="p">)</span>
+<span class="n">builder</span><span class="o">.</span><span class="n">ret</span><span class="p">(</span><span class="n">Constant</span><span class="p">(</span><span class="n">IntType</span><span class="p">(</span><span class="mi">32</span><span class="p">),</span> <span class="mi">37</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">mod</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Running the program should now produce this:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="p">;</span> <span class="n">ModuleID</span> <span class="o">=</span> <span class="s2">&quot;hello&quot;</span>
+<span class="n">target</span> <span class="n">triple</span> <span class="o">=</span> <span class="s2">&quot;unknown-unknown-unknown&quot;</span>
+<span class="n">target</span> <span class="n">datalayout</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+
+<span class="n">define</span> <span class="n">i32</span> <span class="o">@</span><span class="s2">&quot;hello&quot;</span><span class="p">()</span>
+<span class="p">{</span>
+<span class="n">entry</span><span class="p">:</span>
+  <span class="n">ret</span> <span class="n">i32</span> <span class="mi">37</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>There you are—a complete LLVM function that does nothing but return
+a value.  Now, a question arises: How do you go about getting it to run?</p>
+</div>
+<div class="section" id="compilation-to-a-standalone-executable">
+<h2>Compilation to a Standalone Executable<a class="headerlink" href="#compilation-to-a-standalone-executable" title="Permalink to this headline">¶</a></h2>
+<p>If you want to run your LLVM generated code, one approach is to feed it
+to a LLVM-based compiler such as <code class="docutils literal"><span class="pre">clang</span></code>.  Save your generated
+code to a file <code class="docutils literal"><span class="pre">hello.ll</span></code>:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">bash</span> <span class="o">%</span> <span class="n">python3</span> <span class="n">hellollvm</span><span class="o">.</span><span class="n">py</span> <span class="o">&gt;</span> <span class="n">hello</span><span class="o">.</span><span class="n">ll</span>
+<span class="n">bash</span> <span class="o">%</span>
+</pre></div>
+</div>
+<p>Now, write a short C program to bootstrap:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="o">/*</span> <span class="n">main</span><span class="o">.</span><span class="n">c</span> <span class="o">*/</span>
+<span class="c1">#include &lt;stdio.h&gt;</span>
+
+<span class="n">extern</span> <span class="nb">int</span> <span class="n">hello</span><span class="p">();</span>
+
+<span class="nb">int</span> <span class="n">main</span><span class="p">()</span> <span class="p">{</span>
+    <span class="n">printf</span><span class="p">(</span><span class="s2">&quot;hello() returned </span><span class="si">%i</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">hello</span><span class="p">());</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Compile this program together with <code class="docutils literal"><span class="pre">hello.ll</span></code> to make an executable:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">bash</span> <span class="o">%</span> <span class="n">clang</span> <span class="n">main</span><span class="o">.</span><span class="n">c</span> <span class="n">hello</span><span class="o">.</span><span class="n">ll</span>
+<span class="n">bash</span> <span class="o">%</span> <span class="o">./</span><span class="n">a</span><span class="o">.</span><span class="n">out</span>
+<span class="n">hello</span><span class="p">()</span> <span class="n">returned</span> <span class="mi">37</span>
+<span class="n">bash</span> <span class="o">%</span>
+</pre></div>
+</div>
+<p>This basic technique for invoking your code and creating stand-alone programs
+will be useful for testing and development.  You also get the advantage of
+being able to use C library functions such as <code class="docutils literal"><span class="pre">printf()</span></code>.  Without this,
+you’d have to figure out how to perform I/O directly using low-level LLVM
+instructions–which would not be fun.</p>
+</div>
+<div class="section" id="a-function-with-arguments">
+<h2>A Function with Arguments<a class="headerlink" href="#a-function-with-arguments" title="Permalink to this headline">¶</a></h2>
+<p>Let’s make a more interesting function.  This function takes two
+arguments <code class="docutils literal"><span class="pre">x</span></code> and <code class="docutils literal"><span class="pre">y</span></code> and computes the value <code class="docutils literal"><span class="pre">x**2</span> <span class="pre">+</span> <span class="pre">y**2</span></code>.  To
+do this, we’re going to follow similar steps as above. First, declare
+the function, add a basic block, and make a new builder.  Once the
+builder is obtained, we’ll create some instructions to compute and
+return the result. Add the following code to your <code class="docutils literal"><span class="pre">hellollvm.py</span></code>
+program:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="c1"># hellollvm.py</span>
+<span class="o">...</span>
+
+<span class="c1"># A user-defined function</span>
+<span class="kn">from</span> <span class="nn">llvmlite.ir</span> <span class="k">import</span> <span class="n">DoubleType</span>
+
+<span class="n">ty_double</span> <span class="o">=</span> <span class="n">DoubleType</span><span class="p">()</span>
+<span class="n">dsquared_func</span> <span class="o">=</span> <span class="n">Function</span><span class="p">(</span><span class="n">mod</span><span class="p">,</span>
+                         <span class="n">FunctionType</span><span class="p">(</span><span class="n">ty_double</span><span class="p">,</span> <span class="p">[</span><span class="n">ty_double</span><span class="p">,</span> <span class="n">ty_double</span><span class="p">]),</span>
+                         <span class="n">name</span><span class="o">=</span><span class="s1">&#39;dsquared&#39;</span><span class="p">)</span>
+<span class="n">block</span> <span class="o">=</span> <span class="n">dsquared_func</span><span class="o">.</span><span class="n">append_basic_block</span><span class="p">(</span><span class="s1">&#39;entry&#39;</span><span class="p">)</span>
+<span class="n">builder</span> <span class="o">=</span> <span class="n">IRBuilder</span><span class="p">(</span><span class="n">block</span><span class="p">)</span>
+
+<span class="c1"># Get the function args</span>
+<span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">dsquared_func</span><span class="o">.</span><span class="n">args</span>
+
+<span class="c1"># Compute temporary values for x*x and y*y</span>
+<span class="n">xsquared</span> <span class="o">=</span> <span class="n">builder</span><span class="o">.</span><span class="n">fmul</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+<span class="n">ysquared</span> <span class="o">=</span> <span class="n">builder</span><span class="o">.</span><span class="n">fmul</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+
+<span class="c1"># Sum the values and return the result</span>
+<span class="n">d2</span> <span class="o">=</span> <span class="n">builder</span><span class="o">.</span><span class="n">fadd</span><span class="p">(</span><span class="n">xsquared</span><span class="p">,</span> <span class="n">ysquared</span><span class="p">)</span>
+<span class="n">builder</span><span class="o">.</span><span class="n">ret</span><span class="p">(</span><span class="n">d2</span><span class="p">)</span>
+
+<span class="c1"># Output the final module</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">mod</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>One thing to notice is that you use the builder to carry out the steps
+needed to perform the calculation that you’re trying to perform. Python
+variables such as <code class="docutils literal"><span class="pre">x</span></code>, <code class="docutils literal"><span class="pre">xsquared</span></code>, and <code class="docutils literal"><span class="pre">d2</span></code> are being used to
+hold intermediate results.</p>
+<p>If you run this program, you should output similar to the following:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="p">;</span> <span class="n">ModuleID</span> <span class="o">=</span> <span class="s2">&quot;hello&quot;</span>
+<span class="o">...</span>
+
+<span class="n">define</span> <span class="n">double</span> <span class="o">@</span><span class="s2">&quot;dsquared&quot;</span><span class="p">(</span><span class="n">double</span> <span class="o">%</span><span class="s2">&quot;.1&quot;</span><span class="p">,</span> <span class="n">double</span> <span class="o">%</span><span class="s2">&quot;.2&quot;</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="n">entry</span><span class="p">:</span>
+  <span class="o">%</span><span class="s2">&quot;.4&quot;</span> <span class="o">=</span> <span class="n">fmul</span> <span class="n">double</span> <span class="o">%</span><span class="s2">&quot;.1&quot;</span><span class="p">,</span> <span class="o">%</span><span class="s2">&quot;.1&quot;</span>
+  <span class="o">%</span><span class="s2">&quot;.5&quot;</span> <span class="o">=</span> <span class="n">fmul</span> <span class="n">double</span> <span class="o">%</span><span class="s2">&quot;.2&quot;</span><span class="p">,</span> <span class="o">%</span><span class="s2">&quot;.2&quot;</span>
+  <span class="o">%</span><span class="s2">&quot;.6&quot;</span> <span class="o">=</span> <span class="n">fadd</span> <span class="n">double</span> <span class="o">%</span><span class="s2">&quot;.4&quot;</span><span class="p">,</span> <span class="o">%</span><span class="s2">&quot;.5&quot;</span>
+  <span class="n">ret</span> <span class="n">double</span> <span class="o">%</span><span class="s2">&quot;.6&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>To test it, modify the C bootstrap code as follows:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="o">/*</span> <span class="n">main</span><span class="o">.</span><span class="n">c</span> <span class="o">*/</span>
+<span class="c1">#include &lt;stdio.h&gt;</span>
+
+<span class="n">extern</span> <span class="nb">int</span> <span class="n">hello</span><span class="p">();</span>
+<span class="n">extern</span> <span class="n">double</span> <span class="n">dsquared</span><span class="p">(</span><span class="n">double</span><span class="p">,</span> <span class="n">double</span><span class="p">);</span>
+
+<span class="nb">int</span> <span class="n">main</span><span class="p">()</span> <span class="p">{</span>
+  <span class="n">printf</span><span class="p">(</span><span class="s2">&quot;Hello returned: </span><span class="si">%i</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">hello</span><span class="p">());</span>
+  <span class="n">printf</span><span class="p">(</span><span class="s2">&quot;dsquared(3, 4) = </span><span class="si">%f</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">dsquared</span><span class="p">(</span><span class="mf">3.0</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">));</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Compile as follows:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">bash</span> <span class="o">%</span> <span class="n">python3</span> <span class="n">hellollvm</span><span class="o">.</span><span class="n">py</span> <span class="o">&gt;</span> <span class="n">hello</span><span class="o">.</span><span class="n">ll</span>
+<span class="n">bash</span> <span class="o">%</span> <span class="n">clang</span> <span class="n">main</span><span class="o">.</span><span class="n">c</span> <span class="n">hello</span><span class="o">.</span><span class="n">ll</span>
+<span class="n">bash</span> <span class="o">%</span> <span class="o">./</span><span class="n">a</span><span class="o">.</span><span class="n">out</span>
+<span class="n">Hello</span> <span class="n">returned</span><span class="p">:</span> <span class="mi">37</span>
+<span class="n">dsquared</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span> <span class="o">=</span> <span class="mf">25.000000</span>
+<span class="n">bash</span> <span class="o">%</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="calling-an-external-function">
+<h2>Calling an external function<a class="headerlink" href="#calling-an-external-function" title="Permalink to this headline">¶</a></h2>
+<p>Even though you’re emitting low-level assembly code, there’s no need
+to completely reinvent the wheel from scratch.  Suppose you wanted to
+call a function already defined in a C library?  Here is how you
+declare a reference to the <code class="docutils literal"><span class="pre">sqrt()</span></code> function in the C math library:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="c1"># hellollvm.py</span>
+<span class="o">...</span>
+
+<span class="n">sqrt_func</span> <span class="o">=</span> <span class="n">Function</span><span class="p">(</span><span class="n">mod</span><span class="p">,</span>
+                     <span class="n">FunctionType</span><span class="p">(</span><span class="n">ty_double</span><span class="p">,</span> <span class="p">[</span><span class="n">ty_double</span><span class="p">]),</span>
+                     <span class="n">name</span><span class="o">=</span><span class="s1">&#39;sqrt&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Now, define a distance function that evaluates <code class="docutils literal"><span class="pre">sqrt(dsquared(x,y))</span></code>:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="c1"># hellollvm.py</span>
+<span class="o">...</span>
+
+<span class="n">distance_func</span> <span class="o">=</span> <span class="n">Function</span><span class="p">(</span><span class="n">mod</span><span class="p">,</span>
+                         <span class="n">FunctionType</span><span class="p">(</span><span class="n">ty_double</span><span class="p">,</span> <span class="p">[</span><span class="n">ty_double</span><span class="p">,</span> <span class="n">ty_double</span><span class="p">]),</span>
+                         <span class="n">name</span><span class="o">=</span><span class="s1">&#39;distance&#39;</span><span class="p">)</span>
+<span class="n">block</span> <span class="o">=</span> <span class="n">distance_func</span><span class="o">.</span><span class="n">append_basic_block</span><span class="p">(</span><span class="s1">&#39;entry&#39;</span><span class="p">)</span>
+<span class="n">builder</span> <span class="o">=</span> <span class="n">IRBuilder</span><span class="p">(</span><span class="n">block</span><span class="p">)</span>
+<span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">distance_func</span><span class="o">.</span><span class="n">args</span>
+<span class="n">d2</span> <span class="o">=</span> <span class="n">builder</span><span class="o">.</span><span class="n">call</span><span class="p">(</span><span class="n">dsquared_func</span><span class="p">,</span> <span class="p">[</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">])</span>
+<span class="n">d</span> <span class="o">=</span> <span class="n">builder</span><span class="o">.</span><span class="n">call</span><span class="p">(</span><span class="n">sqrt_func</span><span class="p">,</span> <span class="p">[</span><span class="n">d2</span><span class="p">])</span>
+<span class="n">builder</span><span class="o">.</span><span class="n">ret</span><span class="p">(</span><span class="n">d</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>If you run <code class="docutils literal"><span class="pre">hellollvm.py</span></code>, you should get output that looks like this:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="p">;</span> <span class="n">ModuleID</span> <span class="o">=</span> <span class="s2">&quot;hello&quot;</span>
+<span class="o">...</span>
+
+<span class="n">declare</span> <span class="n">double</span> <span class="o">@</span><span class="s2">&quot;sqrt&quot;</span><span class="p">(</span><span class="n">double</span> <span class="o">%</span><span class="s2">&quot;.1&quot;</span><span class="p">)</span>
+
+<span class="n">define</span> <span class="n">double</span> <span class="o">@</span><span class="s2">&quot;distance&quot;</span><span class="p">(</span><span class="n">double</span> <span class="o">%</span><span class="s2">&quot;.1&quot;</span><span class="p">,</span> <span class="n">double</span> <span class="o">%</span><span class="s2">&quot;.2&quot;</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="n">entry</span><span class="p">:</span>
+  <span class="o">%</span><span class="s2">&quot;.4&quot;</span> <span class="o">=</span> <span class="n">call</span> <span class="n">double</span> <span class="p">(</span><span class="n">double</span><span class="p">,</span> <span class="n">double</span><span class="p">)</span><span class="o">*</span> <span class="o">@</span><span class="s2">&quot;dsquared&quot;</span><span class="p">(</span><span class="n">double</span> <span class="o">%</span><span class="s2">&quot;.1&quot;</span><span class="p">,</span> <span class="n">double</span> <span class="o">%</span><span class="s2">&quot;.2&quot;</span><span class="p">)</span>
+  <span class="o">%</span><span class="s2">&quot;.5&quot;</span> <span class="o">=</span> <span class="n">call</span> <span class="n">double</span> <span class="p">(</span><span class="n">double</span><span class="p">)</span><span class="o">*</span> <span class="o">@</span><span class="s2">&quot;sqrt&quot;</span><span class="p">(</span><span class="n">double</span> <span class="o">%</span><span class="s2">&quot;.4&quot;</span><span class="p">)</span>
+  <span class="n">ret</span> <span class="n">double</span> <span class="o">%</span><span class="s2">&quot;.5&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Modify the <code class="docutils literal"><span class="pre">main.c</span></code> program for testing:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="o">/*</span> <span class="n">main</span><span class="o">.</span><span class="n">c</span> <span class="o">*/</span>
+<span class="c1">#include &lt;stdio.h&gt;</span>
+
+<span class="n">extern</span> <span class="nb">int</span> <span class="n">hello</span><span class="p">();</span>
+<span class="n">extern</span> <span class="n">double</span> <span class="n">dsquared</span><span class="p">(</span><span class="n">double</span><span class="p">,</span> <span class="n">double</span><span class="p">);</span>
+<span class="n">extern</span> <span class="n">double</span> <span class="n">distance</span><span class="p">(</span><span class="n">double</span><span class="p">,</span> <span class="n">double</span><span class="p">);</span>
+
+<span class="nb">int</span> <span class="n">main</span><span class="p">()</span> <span class="p">{</span>
+  <span class="n">printf</span><span class="p">(</span><span class="s2">&quot;Hello returned: </span><span class="si">%i</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">hello</span><span class="p">());</span>
+  <span class="n">printf</span><span class="p">(</span><span class="s2">&quot;dsquared(3, 4) = </span><span class="si">%f</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">dsquared</span><span class="p">(</span><span class="mf">3.0</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">));</span>
+  <span class="n">printf</span><span class="p">(</span><span class="s2">&quot;distance(3, 4) = </span><span class="si">%f</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">distance</span><span class="p">(</span><span class="mf">3.0</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">));</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Compile and run:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">bash</span> <span class="o">%</span> <span class="n">python3</span> <span class="n">hellollvm</span><span class="o">.</span><span class="n">py</span> <span class="o">&gt;</span> <span class="n">hello</span><span class="o">.</span><span class="n">ll</span>
+<span class="n">bash</span> <span class="o">%</span> <span class="n">clang</span> <span class="n">main</span><span class="o">.</span><span class="n">c</span> <span class="n">hello</span><span class="o">.</span><span class="n">ll</span> <span class="o">-</span><span class="n">lm</span>
+<span class="n">bash</span> <span class="o">%</span> <span class="o">./</span><span class="n">a</span><span class="o">.</span><span class="n">out</span>
+<span class="n">Hello</span> <span class="n">returned</span><span class="p">:</span> <span class="mi">37</span>
+<span class="n">dsquared</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span> <span class="o">=</span> <span class="mf">25.000000</span>
+<span class="n">distance</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span> <span class="o">=</span> <span class="mf">5.000000</span>
+<span class="n">bash</span> <span class="o">%</span>
+</pre></div>
+</div>
+<p>You should be getting exactly the output above.  If not, stop and
+figure out what’s wrong.</p>
+<p>As an aside, you’re not limited to calling just existing C
+libraries. You can make your own custom C runtime functions and call
+them from your LLVM generated code using the same technique.  You’ll
+be doing this in the project.</p>
+</div>
+<div class="section" id="variables-and-state">
+<h2>Variables and State<a class="headerlink" href="#variables-and-state" title="Permalink to this headline">¶</a></h2>
+<p>You might want to define a variable that keeps its state.  Let’s make
+a global variable <code class="docutils literal"><span class="pre">x</span></code>:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="c1"># hellollvm.py</span>
+<span class="o">...</span>
+<span class="kn">from</span> <span class="nn">llvmlite.ir</span> <span class="k">import</span> <span class="n">GlobalVariable</span>
+<span class="n">x_var</span> <span class="o">=</span> <span class="n">GlobalVariable</span><span class="p">(</span><span class="n">mod</span><span class="p">,</span> <span class="n">ty_double</span><span class="p">,</span> <span class="s1">&#39;x&#39;</span><span class="p">)</span>
+<span class="n">x_var</span><span class="o">.</span><span class="n">initializer</span> <span class="o">=</span> <span class="n">Constant</span><span class="p">(</span><span class="n">ty_double</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Now, let’s write a function that increments the variable and
+prints its new value.  To do this, you use <code class="docutils literal"><span class="pre">load</span></code> and <code class="docutils literal"><span class="pre">store</span></code>
+instructions to manipulate the variable state:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="c1"># hellollvm.py</span>
+<span class="o">...</span>
+
+<span class="kn">from</span> <span class="nn">llvmlite.ir</span> <span class="k">import</span> <span class="n">VoidType</span>
+
+<span class="n">incr_func</span> <span class="o">=</span> <span class="n">Function</span><span class="p">(</span><span class="n">mod</span><span class="p">,</span>
+                     <span class="n">FunctionType</span><span class="p">(</span><span class="n">VoidType</span><span class="p">(),</span> <span class="p">[]),</span>
+                     <span class="n">name</span><span class="o">=</span><span class="s1">&#39;incr&#39;</span><span class="p">)</span>
+<span class="n">block</span> <span class="o">=</span> <span class="n">incr_func</span><span class="o">.</span><span class="n">append_basic_block</span><span class="p">(</span><span class="s1">&#39;entry&#39;</span><span class="p">)</span>
+<span class="n">builder</span> <span class="o">=</span> <span class="n">IRBuilder</span><span class="p">(</span><span class="n">block</span><span class="p">)</span>
+<span class="n">tmp1</span> <span class="o">=</span> <span class="n">builder</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">x_var</span><span class="p">)</span>
+<span class="n">tmp2</span> <span class="o">=</span> <span class="n">builder</span><span class="o">.</span><span class="n">fadd</span><span class="p">(</span><span class="n">tmp1</span><span class="p">,</span> <span class="n">Constant</span><span class="p">(</span><span class="n">ty_double</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">))</span>
+<span class="n">builder</span><span class="o">.</span><span class="n">store</span><span class="p">(</span><span class="n">tmp2</span><span class="p">,</span> <span class="n">x_var</span><span class="p">)</span>
+<span class="n">builder</span><span class="o">.</span><span class="n">ret_void</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>Modify the <code class="docutils literal"><span class="pre">main.c</span></code> file as follows:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="o">/*</span> <span class="n">main</span><span class="o">.</span><span class="n">c</span> <span class="o">*/</span>
+<span class="c1">#include &lt;stdio.h&gt;</span>
+
+<span class="n">extern</span> <span class="nb">int</span> <span class="n">hello</span><span class="p">();</span>
+<span class="n">extern</span> <span class="n">double</span> <span class="n">dsquared</span><span class="p">(</span><span class="n">double</span><span class="p">,</span> <span class="n">double</span><span class="p">);</span>
+<span class="n">extern</span> <span class="n">double</span> <span class="n">distance</span><span class="p">(</span><span class="n">double</span><span class="p">,</span> <span class="n">double</span><span class="p">);</span>
+<span class="n">extern</span> <span class="n">double</span> <span class="n">x</span><span class="p">;</span>
+<span class="n">extern</span> <span class="n">void</span> <span class="n">incr</span><span class="p">();</span>
+
+<span class="nb">int</span> <span class="n">main</span><span class="p">()</span> <span class="p">{</span>
+  <span class="n">printf</span><span class="p">(</span><span class="s2">&quot;Hello returned: </span><span class="si">%i</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">hello</span><span class="p">());</span>
+  <span class="n">printf</span><span class="p">(</span><span class="s2">&quot;dsquared(3, 4) = </span><span class="si">%f</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">dsquared</span><span class="p">(</span><span class="mf">3.0</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">));</span>
+  <span class="n">printf</span><span class="p">(</span><span class="s2">&quot;distance(3, 4) = </span><span class="si">%f</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">distance</span><span class="p">(</span><span class="mf">3.0</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">));</span>
+  <span class="n">printf</span><span class="p">(</span><span class="s2">&quot;x is </span><span class="si">%f</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">x</span><span class="p">);</span>
+  <span class="n">incr</span><span class="p">();</span>
+  <span class="n">printf</span><span class="p">(</span><span class="s2">&quot;x is now </span><span class="si">%f</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">x</span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Compile and run the program again:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">bash</span> <span class="o">%</span> <span class="n">python3</span> <span class="n">hellollvm</span><span class="o">.</span><span class="n">py</span> <span class="o">&gt;</span> <span class="n">hello</span><span class="o">.</span><span class="n">ll</span>
+<span class="n">bash</span> <span class="o">%</span> <span class="n">clang</span> <span class="n">main</span><span class="o">.</span><span class="n">c</span> <span class="n">hello</span><span class="o">.</span><span class="n">ll</span> <span class="o">-</span><span class="n">lm</span>
+<span class="n">bash</span> <span class="o">%</span> <span class="o">./</span><span class="n">a</span><span class="o">.</span><span class="n">out</span>
+<span class="n">Hello</span> <span class="n">returned</span><span class="p">:</span> <span class="mi">37</span>
+<span class="n">dsquared</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span> <span class="o">=</span> <span class="mf">25.000000</span>
+<span class="n">distance</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span> <span class="o">=</span> <span class="mf">5.000000</span>
+<span class="n">x</span> <span class="ow">is</span> <span class="mf">0.000000</span>
+<span class="n">x</span> <span class="ow">is</span> <span class="n">now</span> <span class="mf">1.000000</span>
+<span class="n">bash</span> <span class="o">%</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="just-in-time-compilation">
+<h2>Just in Time Compilation<a class="headerlink" href="#just-in-time-compilation" title="Permalink to this headline">¶</a></h2>
+<p>In our example, we are creating LLVM instructions, writing them to a
+file, and using the <code class="docutils literal"><span class="pre">clang</span></code> compiler to produce an executable.
+This is not the only approach.  If you desired, you could compile
+directly in Python and access the instructions via a library such as
+<code class="docutils literal"><span class="pre">ctypes</span></code>.   This part is a bit tricky, but add the following code to
+<code class="docutils literal"><span class="pre">hellollvm.py</span></code>:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="c1"># hellollvm.py</span>
+<span class="o">...</span>
+
+<span class="kn">import</span> <span class="nn">llvmlite.binding</span> <span class="k">as</span> <span class="nn">llvm</span>
+
+<span class="n">llvm</span><span class="o">.</span><span class="n">initialize</span><span class="p">()</span>
+<span class="n">llvm</span><span class="o">.</span><span class="n">initialize_native_target</span><span class="p">()</span>
+<span class="n">llvm</span><span class="o">.</span><span class="n">initialize_native_asmprinter</span><span class="p">()</span>
+
+<span class="n">target</span> <span class="o">=</span> <span class="n">llvm</span><span class="o">.</span><span class="n">Target</span><span class="o">.</span><span class="n">from_default_triple</span><span class="p">()</span>
+<span class="n">target_machine</span> <span class="o">=</span> <span class="n">target</span><span class="o">.</span><span class="n">create_target_machine</span><span class="p">()</span>
+<span class="n">compiled_mod</span> <span class="o">=</span> <span class="n">llvm</span><span class="o">.</span><span class="n">parse_assembly</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">mod</span><span class="p">))</span>
+<span class="n">engine</span> <span class="o">=</span> <span class="n">llvm</span><span class="o">.</span><span class="n">create_mcjit_compiler</span><span class="p">(</span><span class="n">compiled_mod</span><span class="p">,</span> <span class="n">target_machine</span><span class="p">)</span>
+
+<span class="c1"># Look up the function pointer (a Python int)</span>
+<span class="n">func_ptr</span> <span class="o">=</span> <span class="n">engine</span><span class="o">.</span><span class="n">get_function_address</span><span class="p">(</span><span class="s2">&quot;distance&quot;</span><span class="p">)</span>
+
+<span class="c1"># Turn into a Python callable using ctypes</span>
+<span class="kn">from</span> <span class="nn">ctypes</span> <span class="k">import</span> <span class="n">CFUNCTYPE</span><span class="p">,</span> <span class="n">c_int</span><span class="p">,</span> <span class="n">c_double</span>
+<span class="n">distance</span> <span class="o">=</span> <span class="n">CFUNCTYPE</span><span class="p">(</span><span class="n">c_double</span><span class="p">,</span> <span class="n">c_double</span><span class="p">,</span> <span class="n">c_double</span><span class="p">)(</span><span class="n">func_ptr</span><span class="p">)</span>
+
+<span class="n">res</span> <span class="o">=</span> <span class="n">distance</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s1">&#39;distance =&#39;</span><span class="p">,</span> <span class="n">res</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>If you run this, you should see the program run the code, and
+produce output such as this:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">bash</span> <span class="o">%</span> <span class="n">python3</span> <span class="n">hellollvm</span><span class="o">.</span><span class="n">py</span>
+<span class="n">distance</span> <span class="o">=</span> <span class="mf">5.0</span>
+<span class="n">bash</span> <span class="o">%</span>
+</pre></div>
+</div>
+<p>This version is a bit different than normal compilation in that the code
+runs inside an active Python interpreter process. The performance should be
+the same, it’s just that you’re launching the code via ctypes.  In the
+earlier examples, you were creating standalone executables with no
+Python dependency at all.</p>
+</div>
+<div class="section" id="a-llvm-mini-reference">
+<h2>A LLVM Mini-Reference<a class="headerlink" href="#a-llvm-mini-reference" title="Permalink to this headline">¶</a></h2>
+<p>This section aims to provide a mini-reference for using LLVM in the
+next part of the project.   It summarizes some of the critical bits.</p>
+<p>For creating LLVM code, use the following import:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">llvmlite.ir</span> <span class="k">import</span> <span class="p">(</span>
+      <span class="n">Module</span><span class="p">,</span> <span class="n">Function</span><span class="p">,</span> <span class="n">FunctionType</span><span class="p">,</span> <span class="n">IRBuilder</span><span class="p">,</span>
+      <span class="n">IntType</span><span class="p">,</span> <span class="n">DoubleType</span><span class="p">,</span> <span class="n">Constant</span>
+      <span class="p">)</span>
+</pre></div>
+</div>
+<p>All LLVM code is placed in a module.  You create one like this:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">mod</span> <span class="o">=</span> <span class="n">Module</span><span class="p">(</span><span class="s2">&quot;modname&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>You declare functions like this:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">func</span> <span class="o">=</span> <span class="n">Function</span><span class="p">(</span><span class="n">mod</span><span class="p">,</span>
+                <span class="n">FunctionType</span><span class="p">(</span><span class="n">rettype</span><span class="p">,</span> <span class="p">[</span><span class="n">argtypes</span><span class="p">]),</span>
+                <span class="n">name</span><span class="o">=</span><span class="s2">&quot;funcname&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The following basic datatypes are used heavily in declarations:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">IntType</span><span class="p">(</span><span class="mi">32</span><span class="p">)</span>             <span class="c1"># A 32-bit integer</span>
+<span class="n">DoubleType</span><span class="p">()</span>            <span class="c1"># A double-precision float</span>
+</pre></div>
+</div>
+<p>To define constants corresponding to the above types, do this:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">c</span> <span class="o">=</span> <span class="n">Constant</span><span class="p">(</span><span class="n">IntType</span><span class="p">(</span><span class="mi">32</span><span class="p">),</span> <span class="n">value</span><span class="p">)</span>
+<span class="n">d</span> <span class="o">=</span> <span class="n">Constant</span><span class="p">(</span><span class="n">DoubleType</span><span class="p">(),</span> <span class="n">value</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>To start adding code to a function, you must add a basic block
+and create a builder.  For example:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">block</span> <span class="o">=</span> <span class="n">func</span><span class="o">.</span><span class="n">append_basic_block</span><span class="p">(</span><span class="s1">&#39;entry&#39;</span><span class="p">)</span>
+<span class="n">builder</span> <span class="o">=</span> <span class="n">IRBuilder</span><span class="p">(</span><span class="n">block</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Builder objects have a variety of useful methods for adding
+instructions.  These include:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="c1"># Returning values</span>
+<span class="n">builder</span><span class="o">.</span><span class="n">ret</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+<span class="n">builder</span><span class="o">.</span><span class="n">ret_void</span><span class="p">()</span>
+
+<span class="c1"># Integer math</span>
+<span class="n">builder</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">)</span>
+<span class="n">builder</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">)</span>
+<span class="n">builder</span><span class="o">.</span><span class="n">mul</span><span class="p">(</span><span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">)</span>
+<span class="n">builder</span><span class="o">.</span><span class="n">sdiv</span><span class="p">(</span><span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">)</span>
+
+<span class="c1"># Floating math</span>
+<span class="n">builder</span><span class="o">.</span><span class="n">fadd</span><span class="p">(</span><span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">)</span>
+<span class="n">builder</span><span class="o">.</span><span class="n">fsub</span><span class="p">(</span><span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">)</span>
+<span class="n">builder</span><span class="o">.</span><span class="n">fmul</span><span class="p">(</span><span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">)</span>
+<span class="n">builder</span><span class="o">.</span><span class="n">fdiv</span><span class="p">(</span><span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">)</span>
+
+<span class="c1"># Function call</span>
+<span class="n">builder</span><span class="o">.</span><span class="n">call</span><span class="p">(</span><span class="n">func</span><span class="p">,</span> <span class="n">args</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>When using the builder, it is important to emphasize that you must
+save the results of the above operations and use them in subsequent
+calls.  For example:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">t1</span> <span class="o">=</span> <span class="n">builder</span><span class="o">.</span><span class="n">fmul</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span>
+<span class="n">t2</span> <span class="o">=</span> <span class="n">builder</span><span class="o">.</span><span class="n">fmul</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">d</span><span class="p">)</span>
+<span class="n">t3</span> <span class="o">=</span> <span class="n">builder</span><span class="o">.</span><span class="n">fadd</span><span class="p">(</span><span class="n">t1</span><span class="p">,</span> <span class="n">t2</span><span class="p">)</span>
+<span class="o">...</span>
+</pre></div>
+</div>
+<p>To declare a global variable do something like this:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">name_var</span> <span class="o">=</span> <span class="n">GlobalVariable</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">IntType</span><span class="p">(</span><span class="mi">32</span><span class="p">),</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;varname&#39;</span><span class="p">)</span>
+<span class="n">name_var</span><span class="o">.</span><span class="n">initializer</span> <span class="o">=</span> <span class="n">Constant</span><span class="p">(</span><span class="n">IntType</span><span class="p">(</span><span class="mi">32</span><span class="p">),</span> <span class="mi">0</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>To access a global variable, use load and store instructions:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">tmp</span> <span class="o">=</span> <span class="n">builder</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">name_var</span><span class="p">)</span>
+<span class="n">builder</span><span class="o">.</span><span class="n">store</span><span class="p">(</span><span class="n">tmp</span><span class="p">,</span> <span class="n">name_var</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Exercise 5 - Introducing LLVM</a><ul>
+<li><a class="reference internal" href="#llvm-preliminaries">LLVM Preliminaries</a></li>
+<li><a class="reference internal" href="#hello-world">Hello World</a></li>
+<li><a class="reference internal" href="#compilation-to-a-standalone-executable">Compilation to a Standalone Executable</a></li>
+<li><a class="reference internal" href="#a-function-with-arguments">A Function with Arguments</a></li>
+<li><a class="reference internal" href="#calling-an-external-function">Calling an external function</a></li>
+<li><a class="reference internal" href="#variables-and-state">Variables and State</a></li>
+<li><a class="reference internal" href="#just-in-time-compilation">Just in Time Compilation</a></li>
+<li><a class="reference internal" href="#a-llvm-mini-reference">A LLVM Mini-Reference</a></li>
+</ul>
+</li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="ex4.html" title="previous chapter">Exercise 4 - Code Generation</a></li>
+      <li>Next: <a href="ex6.html" title="next chapter">Exercise 6 - Relations and Booleans</a></li>
+  </ul></li>
+</ul>
+</div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/ex5.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2016, David Beazley.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.6.6</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.10</a>
+      
+      |
+      <a href="_sources/ex5.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

@@ -1,0 +1,162 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Project 3 - Types and Program Checking &#8212; Write a Compiler 0.0 documentation</title>
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '0.0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true,
+        SOURCELINK_SUFFIX: '.txt'
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Project 4 - Code Generation" href="Project4.html" />
+    <link rel="prev" title="Project 2 - Parsing" href="Project2.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="project-3-types-and-program-checking">
+<h1>Project 3 - Types and Program Checking<a class="headerlink" href="#project-3-types-and-program-checking" title="Permalink to this headline">¶</a></h1>
+<p>Modified files:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">gone</span><span class="o">/</span><span class="n">checker</span><span class="o">.</span><span class="n">py</span>
+<span class="n">gone</span><span class="o">/</span><span class="n">typesys</span><span class="o">.</span><span class="n">py</span>
+</pre></div>
+</div>
+<div class="section" id="preliminaries">
+<h2>Preliminaries<a class="headerlink" href="#preliminaries" title="Permalink to this headline">¶</a></h2>
+<p>Don’t forget to commit and tag your Project 2 code:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">bash</span> <span class="o">%</span> <span class="n">git</span> <span class="n">commit</span> <span class="o">-</span><span class="n">m</span> <span class="s2">&quot;Project 2 complete&quot;</span> <span class="o">.</span>
+<span class="n">bash</span> <span class="o">%</span> <span class="n">git</span> <span class="n">tag</span> <span class="n">project2</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Permalink to this headline">¶</a></h2>
+<p>In this project, you are going to add a type system and type checking
+to your compiler.  This is where your compiler is going to report most
+of its error messages for things such as invalid operators, undefined
+variable names, and so forth.</p>
+<p>Further instructions are found in the files <code class="docutils literal"><span class="pre">checker.py</span></code> and
+<code class="docutils literal"><span class="pre">types.py</span></code>.</p>
+</div>
+<div class="section" id="testing">
+<h2>Testing<a class="headerlink" href="#testing" title="Permalink to this headline">¶</a></h2>
+<p>The following tests are available:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">Tests</span><span class="o">/</span><span class="n">checktest0</span><span class="o">.</span><span class="n">g</span>
+<span class="n">Tests</span><span class="o">/</span><span class="n">checktest1</span><span class="o">.</span><span class="n">g</span>
+<span class="n">Tests</span><span class="o">/</span><span class="n">checktest2</span><span class="o">.</span><span class="n">g</span>
+<span class="n">Tests</span><span class="o">/</span><span class="n">checktest3</span><span class="o">.</span><span class="n">g</span>
+<span class="n">Tests</span><span class="o">/</span><span class="n">checktest4</span><span class="o">.</span><span class="n">g</span>
+<span class="n">Tests</span><span class="o">/</span><span class="n">checktest5</span><span class="o">.</span><span class="n">g</span>
+<span class="n">Tests</span><span class="o">/</span><span class="n">checktest6</span><span class="o">.</span><span class="n">g</span>
+<span class="n">Tests</span><span class="o">/</span><span class="n">checktest7</span><span class="o">.</span><span class="n">g</span>
+</pre></div>
+</div>
+<p>Information and implementation tips are given in each test file. To
+run these tests, use a command such as:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">bash</span> <span class="o">%</span> <span class="n">python3</span> <span class="o">-</span><span class="n">m</span> <span class="n">gone</span><span class="o">.</span><span class="n">checker</span> <span class="n">Tests</span><span class="o">/</span><span class="n">checktest0</span><span class="o">.</span><span class="n">g</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="commentary">
+<h2>Commentary<a class="headerlink" href="#commentary" title="Permalink to this headline">¶</a></h2>
+<p>Error reporting is a notoriously difficult part of compiler writing.
+In writing your checker, it’s important to focus on small steps and to
+take your time.  The above tests are organized in a way that follows
+one possible implementation strategy.</p>
+<p>You may find it to be difficult to catch certain kinds of errors.
+Keep in mind that even if you don’t detect every possible error, you
+can still proceed to later stages of the project.  The main downside
+is that your compiler might try to do crazy things with incorrect
+programs if you allow them to continue on to code generation.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Project 3 - Types and Program Checking</a><ul>
+<li><a class="reference internal" href="#preliminaries">Preliminaries</a></li>
+<li><a class="reference internal" href="#overview">Overview</a></li>
+<li><a class="reference internal" href="#testing">Testing</a></li>
+<li><a class="reference internal" href="#commentary">Commentary</a></li>
+</ul>
+</li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="Project2.html" title="previous chapter">Project 2 - Parsing</a></li>
+      <li>Next: <a href="Project4.html" title="next chapter">Project 4 - Code Generation</a></li>
+  </ul></li>
+</ul>
+</div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/Project3.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2016, David Beazley.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.6.6</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.10</a>
+      
+      |
+      <a href="_sources/Project3.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

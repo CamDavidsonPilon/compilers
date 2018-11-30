@@ -1,0 +1,426 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Exercise 7 - Basic Blocks and Control Flow &#8212; Write a Compiler 0.0 documentation</title>
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '0.0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true,
+        SOURCELINK_SUFFIX: '.txt'
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Exercise 8 - Functions and Stack Frames" href="ex8.html" />
+    <link rel="prev" title="Exercise 6 - Relations and Booleans" href="ex6.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="exercise-7-basic-blocks-and-control-flow">
+<h1>Exercise 7 - Basic Blocks and Control Flow<a class="headerlink" href="#exercise-7-basic-blocks-and-control-flow" title="Permalink to this headline">¶</a></h1>
+<p>A sequence of simple operations where there is a single entry and
+exit point with no changes in control flow is known as a basic block.
+For example:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="c1"># Example of a basic block</span>
+<span class="n">a</span> <span class="o">=</span> <span class="mi">2</span>
+<span class="n">b</span> <span class="o">=</span> <span class="mi">3</span>
+<span class="n">c</span> <span class="o">=</span> <span class="n">a</span> <span class="o">+</span> <span class="n">b</span>
+</pre></div>
+</div>
+<p>Programs tend to consist of many basic blocks joined together
+by various control-flow statements such as conditions and loops.
+For example:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">a</span> <span class="o">=</span> <span class="mi">2</span>
+<span class="n">b</span> <span class="o">=</span> <span class="mi">3</span>
+<span class="k">if</span> <span class="n">a</span> <span class="o">&lt;</span> <span class="n">b</span><span class="p">:</span>
+     <span class="n">c</span> <span class="o">=</span> <span class="n">a</span> <span class="o">+</span> <span class="n">b</span>
+<span class="k">else</span><span class="p">:</span>
+     <span class="n">c</span> <span class="o">=</span> <span class="n">a</span> <span class="o">-</span> <span class="n">b</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>In this code, there are four basic blocks:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">b1</span><span class="p">:</span>    <span class="n">a</span> <span class="o">=</span> <span class="mi">2</span>
+       <span class="n">b</span> <span class="o">=</span> <span class="mi">3</span>
+       <span class="n">a</span> <span class="o">&lt;</span> <span class="n">b</span>
+
+<span class="n">b2</span><span class="p">:</span>    <span class="n">c</span> <span class="o">=</span> <span class="n">a</span> <span class="o">+</span> <span class="n">b</span>
+
+<span class="n">b3</span><span class="p">:</span>    <span class="n">c</span> <span class="o">=</span> <span class="n">a</span> <span class="o">-</span> <span class="n">b</span>
+
+<span class="n">b4</span><span class="p">:</span>    <span class="nb">print</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The condition causes the code to branch to either block b2 or block b3.
+One way to view this is as a control-flow graph:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span>             <span class="o">|--------------|</span>
+             <span class="o">|</span>  <span class="n">b1</span><span class="p">:</span>  <span class="n">a</span> <span class="o">=</span> <span class="mi">2</span>  <span class="o">|</span>
+             <span class="o">|</span>       <span class="n">b</span> <span class="o">=</span> <span class="mi">3</span>  <span class="o">|</span>
+             <span class="o">|</span>       <span class="n">a</span> <span class="o">&lt;</span> <span class="n">b</span>  <span class="o">|</span>
+             <span class="o">|--------------|</span>
+           <span class="o">/</span>                 \
+          <span class="o">/</span> <span class="kc">True</span>         <span class="kc">False</span>\
+         <span class="o">/</span>                     \
+<span class="o">|------------------|</span>       <span class="o">|-----------------|</span>
+<span class="o">|</span>  <span class="n">b2</span><span class="p">:</span>  <span class="n">c</span> <span class="o">=</span> <span class="n">a</span> <span class="o">+</span> <span class="n">b</span>  <span class="o">|</span>       <span class="o">|</span>  <span class="n">b3</span><span class="p">:</span> <span class="n">c</span> <span class="o">=</span> <span class="n">a</span> <span class="o">-</span> <span class="n">b</span>  <span class="o">|</span>
+<span class="o">|------------------|</span>       <span class="o">|-----------------|</span>
+             \              <span class="o">/</span>
+              \            <span class="o">/</span>
+              <span class="o">|--------------|</span>
+              <span class="o">|</span> <span class="n">b4</span><span class="p">:</span> <span class="nb">print</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="o">|</span>
+              <span class="o">|--------------|</span>
+</pre></div>
+</div>
+<p>The nodes of the graph represent basic blocks–which are just simple
+instruction sequences.  Edges of the graph represent jumps to to a
+different basic block.  Sometimes an edge depends on the result
+of a condition or relation.   An edge might also be an unconditional
+jump.</p>
+<p>Internally, a compiler might construct a control flow graph in order
+to further analyze the structure of the program (e.g., detecting when
+variables are no longer needed, finding dead code, performing certain
+optimizations, etc.).</p>
+<p>When generating code, the basic blocks of the control flow graph are
+typically serialized with appropriate jump instructions inserted between
+blocks to reflect the proper control flow. For example, like this:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="o">|--------------|</span>
+<span class="o">|</span>  <span class="n">b1</span><span class="p">:</span>  <span class="n">a</span> <span class="o">=</span> <span class="mi">2</span>  <span class="o">|</span>
+<span class="o">|</span>       <span class="n">b</span> <span class="o">=</span> <span class="mi">3</span>  <span class="o">|</span>
+<span class="o">|</span>       <span class="n">a</span> <span class="o">&lt;</span> <span class="n">b</span>  <span class="o">|</span>
+<span class="o">|--------------|</span>
+<span class="o">|</span> <span class="n">JMP_FALSE</span> <span class="n">b3</span> <span class="o">|</span>
+<span class="o">|--------------|</span>
+<span class="o">|</span> <span class="n">b2</span><span class="p">:</span> <span class="n">c</span> <span class="o">=</span> <span class="n">a</span> <span class="o">+</span><span class="n">b</span> <span class="o">|</span>
+<span class="o">|--------------|</span>
+<span class="o">|</span> <span class="n">JMP</span> <span class="n">b4</span>       <span class="o">|</span>
+<span class="o">|--------------|</span>
+<span class="o">|</span> <span class="n">b3</span><span class="p">:</span> <span class="n">c</span> <span class="o">=</span> <span class="n">a</span><span class="o">-</span><span class="n">b</span>  <span class="o">|</span>
+<span class="o">|--------------|</span>
+<span class="o">|</span> <span class="n">b4</span><span class="p">:</span> <span class="nb">print</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="o">|</span>
+<span class="o">|--------------|</span>
+</pre></div>
+</div>
+<div class="section" id="looking-at-python-code-generation">
+<h2>Looking at Python Code Generation<a class="headerlink" href="#looking-at-python-code-generation" title="Permalink to this headline">¶</a></h2>
+<p>Let’s see how Python generates low-level code for conditions.  Try this:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="k">def</span> <span class="nf">foo</span><span class="p">(</span><span class="n">a</span><span class="p">,</span><span class="n">b</span><span class="p">):</span>
+<span class="go">        if a &lt; b:</span>
+<span class="go">                print(&quot;yes&quot;)</span>
+<span class="go">        else:</span>
+<span class="go">                print(&quot;no&quot;)</span>
+
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">dis</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">dis</span><span class="o">.</span><span class="n">dis</span><span class="p">(</span><span class="n">foo</span><span class="p">)</span>
+<span class="go">  2           0 LOAD_FAST                0 (a)</span>
+<span class="go">              3 LOAD_FAST                1 (b)</span>
+<span class="go">              6 COMPARE_OP               0 (&lt;)</span>
+<span class="go">              9 POP_JUMP_IF_FALSE       25</span>
+
+<span class="go">  3          12 LOAD_GLOBAL              0 (print)</span>
+<span class="go">             15 LOAD_CONST               1 (&#39;yes&#39;)</span>
+<span class="go">             18 CALL_FUNCTION            1</span>
+<span class="go">             21 POP_TOP</span>
+<span class="go">             22 JUMP_FORWARD            10 (to 35)</span>
+
+<span class="go">  5     &gt;&gt;   25 LOAD_GLOBAL              0 (print)</span>
+<span class="go">             28 LOAD_CONST               2 (&#39;no&#39;)</span>
+<span class="go">             31 CALL_FUNCTION            1</span>
+<span class="go">             34 POP_TOP</span>
+<span class="go">        &gt;&gt;   35 LOAD_CONST               0 (None)</span>
+<span class="go">             38 RETURN_VALUE</span>
+<span class="go">&gt;&gt;&gt;</span>
+</pre></div>
+</div>
+<p>Carefully study the code.  Can you identify the basic blocks?
+How does control flow of the if-statement pass from block to block?
+See the image <a class="reference external" href="file:_static/if.png">file:_static/if.png</a></p>
+<p>Try disassembling a while-loop:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="k">def</span> <span class="nf">countdown</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+<span class="go">        while n &gt; 0:</span>
+<span class="go">            print(&quot;T-minus&quot;,n)</span>
+<span class="go">            n -= 1</span>
+
+<span class="gp">&gt;&gt;&gt; </span><span class="n">dis</span><span class="o">.</span><span class="n">dis</span><span class="p">(</span><span class="n">countdown</span><span class="p">)</span>
+<span class="go">  2           0 SETUP_LOOP              39 (to 42)</span>
+<span class="go">        &gt;&gt;    3 LOAD_FAST                0 (n)</span>
+<span class="go">              6 LOAD_CONST               1 (0)</span>
+<span class="go">              9 COMPARE_OP               4 (&gt;)</span>
+<span class="go">             12 POP_JUMP_IF_FALSE       41</span>
+
+<span class="go">  3          15 LOAD_GLOBAL              0 (print)</span>
+<span class="go">             18 LOAD_CONST               2 (&#39;T-minus&#39;)</span>
+<span class="go">             21 LOAD_FAST                0 (n)</span>
+<span class="go">             24 CALL_FUNCTION            2</span>
+<span class="go">             27 POP_TOP</span>
+
+<span class="go">  4          28 LOAD_FAST                0 (n)</span>
+<span class="go">             31 LOAD_CONST               3 (1)</span>
+<span class="go">             34 INPLACE_SUBTRACT</span>
+<span class="go">             35 STORE_FAST               0 (n)</span>
+<span class="go">             38 JUMP_ABSOLUTE            3</span>
+<span class="go">        &gt;&gt;   41 POP_BLOCK</span>
+<span class="go">        &gt;&gt;   42 LOAD_CONST               0 (None)</span>
+<span class="go">             45 RETURN_VALUE</span>
+<span class="go">&gt;&gt;&gt;</span>
+</pre></div>
+</div>
+<p>Again, study the disassembly.  Can you identify the basic blocks?
+What is the control flow between blocks?  See the image <a class="reference external" href="file:_static/while.png">file:_static/while.png</a>
+for a picture.</p>
+</div>
+<div class="section" id="creating-basic-blocks-and-control-flow-graphs">
+<h2>Creating Basic Blocks and Control Flow Graphs<a class="headerlink" href="#creating-basic-blocks-and-control-flow-graphs" title="Permalink to this headline">¶</a></h2>
+<p>Let’s see an example of how to generate intermediate code for
+basic blocks and control flow.  Let’s focus on this
+small Python code sample:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">code</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;</span><span class="se">\</span>
+<span class="s2">start</span>
+<span class="s2">if a &lt; 0:</span>
+<span class="s2">    a + b</span>
+<span class="s2">else:</span>
+<span class="s2">    a - b</span>
+<span class="s2">done</span>
+<span class="s2">&quot;&quot;&quot;</span>
+</pre></div>
+</div>
+<p>Compile the code and view the AST just to see what it looks like:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">ast</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">top</span> <span class="o">=</span> <span class="n">ast</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">code</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">ast</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">top</span><span class="p">))</span>
+<span class="go">Module(body=[Expr(value=Name(id=&#39;start&#39;, ctx=Load())),</span>
+<span class="go">If(test=Compare(left=Name(id=&#39;a&#39;, ctx=Load()), ops=[Lt()],</span>
+<span class="go">comparators=[Num(n=0)]), body=[Expr(value=BinOp(left=Name(id=&#39;a&#39;,</span>
+<span class="go">ctx=Load()), op=Add(), right=Name(id=&#39;b&#39;, ctx=Load())))],</span>
+<span class="go">orelse=[Expr(value=BinOp(left=Name(id=&#39;a&#39;, ctx=Load()), op=Sub(),</span>
+<span class="go">right=Name(id=&#39;b&#39;, ctx=Load())))]), Expr(value=Name(id=&#39;done&#39;,</span>
+<span class="go">ctx=Load()))])</span>
+<span class="go">&gt;&gt;&gt;</span>
+</pre></div>
+</div>
+<p>In Exercise 4, we took a look at how to walk the AST and turn it into
+Python machine code.   We’re just going to expand and adapt that code
+by inserting block labels and jump instructions.</p>
+<p>Take the code generator class from Exercise 4 and add a few new
+features to it:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">ast</span>
+<span class="k">class</span> <span class="nc">CodeGenerator</span><span class="p">(</span><span class="n">ast</span><span class="o">.</span><span class="n">NodeVisitor</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    Sample code generator with basic blocks and control flow</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">code</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_label</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="k">def</span> <span class="nf">new_block</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_label</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">return</span> <span class="s1">&#39;b</span><span class="si">%d</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">_label</span>
+
+    <span class="k">def</span> <span class="nf">visit_If</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">node</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Example of compiling a simple Python if statement.</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="c1"># Step 1: Evaluate the test condition</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">test</span><span class="p">)</span>
+
+        <span class="c1"># Step 2: Make a block labels for both branches and the merge point</span>
+        <span class="n">ifblock</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">new_block</span><span class="p">()</span>
+        <span class="n">elseblock</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">new_block</span><span class="p">()</span>
+        <span class="n">mergeblock</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">new_block</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">code</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="s1">&#39;JUMP_IF_FALSE&#39;</span><span class="p">,</span> <span class="n">elseblock</span><span class="p">))</span>
+
+        <span class="c1"># Step 3: Traverse all of the statements in the if-body</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">code</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="s1">&#39;BLOCK&#39;</span><span class="p">,</span> <span class="n">ifblock</span><span class="p">))</span>
+        <span class="k">for</span> <span class="n">bnode</span> <span class="ow">in</span> <span class="n">node</span><span class="o">.</span><span class="n">body</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">bnode</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">code</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="s1">&#39;JUMP&#39;</span><span class="p">,</span> <span class="n">mergeblock</span><span class="p">))</span>
+
+        <span class="c1"># Step 4: If there&#39;s an else-clause, create a new block and traverse statements</span>
+        <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">orelse</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">code</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="s1">&#39;BLOCK&#39;</span><span class="p">,</span> <span class="n">elseblock</span><span class="p">))</span>
+            <span class="c1"># Visit the body of the else-clause</span>
+            <span class="k">for</span> <span class="n">bnode</span> <span class="ow">in</span> <span class="n">node</span><span class="o">.</span><span class="n">orelse</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">bnode</span><span class="p">)</span>
+
+        <span class="c1"># Step 5: Start a new block to continue on with more instructions</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">code</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="s1">&#39;BLOCK&#39;</span><span class="p">,</span> <span class="n">mergeblock</span><span class="p">))</span>
+
+    <span class="k">def</span> <span class="nf">visit_BinOp</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">node</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">left</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">right</span><span class="p">)</span>
+        <span class="n">opname</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">op</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span>
+        <span class="n">inst</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;BINARY_&quot;</span><span class="o">+</span><span class="n">opname</span><span class="o">.</span><span class="n">upper</span><span class="p">(),)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">code</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">inst</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">visit_Compare</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">node</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">left</span><span class="p">)</span>
+        <span class="n">opname</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">ops</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">comparators</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">inst</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;BINARY_&quot;</span><span class="o">+</span><span class="n">opname</span><span class="o">.</span><span class="n">upper</span><span class="p">(),)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">code</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">inst</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">visit_Name</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">node</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">ctx</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Load</span><span class="p">):</span>
+            <span class="n">inst</span> <span class="o">=</span> <span class="p">(</span><span class="s1">&#39;LOAD_GLOBAL&#39;</span><span class="p">,</span><span class="n">node</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">inst</span> <span class="o">=</span> <span class="p">(</span><span class="s1">&#39;Unimplemented,&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">code</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">inst</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">visit_Num</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">node</span><span class="p">):</span>
+        <span class="n">inst</span> <span class="o">=</span> <span class="p">(</span><span class="s1">&#39;LOAD_CONST&#39;</span><span class="p">,</span><span class="n">node</span><span class="o">.</span><span class="n">n</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">code</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">inst</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>When handling the <code class="docutils literal"><span class="pre">if</span></code> statement, the code generator makes new
+block labels for the if-branch, the else-branch, and the merge
+point.  It then follows each branch and emits instructions.  Block
+labels are inserted as appropriate to indicate the start of each block.</p>
+<p>Try running the following code fragment and studying the output:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">&#39;__main__&#39;</span><span class="p">:</span>
+    <span class="n">top</span> <span class="o">=</span> <span class="n">ast</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="s2">&quot;&quot;&quot;</span><span class="se">\</span>
+<span class="s2">start</span>
+<span class="s2">if a &lt; 0:</span>
+<span class="s2">   a + b</span>
+<span class="s2">else:</span>
+<span class="s2">   a - b</span>
+<span class="s2">done</span>
+<span class="s2">&quot;&quot;&quot;</span><span class="p">)</span>
+    <span class="n">gen</span> <span class="o">=</span> <span class="n">CodeGenerator</span><span class="p">()</span>
+    <span class="n">gen</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">top</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">instr</span> <span class="ow">in</span> <span class="n">gen</span><span class="o">.</span><span class="n">code</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="n">instr</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>You should see output that’s pretty close to the Python disassembly like this:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="p">(</span><span class="s1">&#39;LOAD_GLOBAL&#39;</span><span class="p">,</span> <span class="s1">&#39;start&#39;</span><span class="p">)</span>
+<span class="p">(</span><span class="s1">&#39;LOAD_GLOBAL&#39;</span><span class="p">,</span> <span class="s1">&#39;a&#39;</span><span class="p">)</span>
+<span class="p">(</span><span class="s1">&#39;LOAD_CONST&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+<span class="p">(</span><span class="s1">&#39;BINARY_LT&#39;</span><span class="p">,)</span>
+<span class="p">(</span><span class="s1">&#39;JUMP_IF_FALSE&#39;</span><span class="p">,</span> <span class="s1">&#39;b2&#39;</span><span class="p">)</span>
+<span class="p">(</span><span class="s1">&#39;BLOCK&#39;</span><span class="p">,</span> <span class="s1">&#39;b1&#39;</span><span class="p">)</span>
+<span class="p">(</span><span class="s1">&#39;LOAD_GLOBAL&#39;</span><span class="p">,</span> <span class="s1">&#39;a&#39;</span><span class="p">)</span>
+<span class="p">(</span><span class="s1">&#39;LOAD_GLOBAL&#39;</span><span class="p">,</span> <span class="s1">&#39;b&#39;</span><span class="p">)</span>
+<span class="p">(</span><span class="s1">&#39;BINARY_ADD&#39;</span><span class="p">,)</span>
+<span class="p">(</span><span class="s1">&#39;JUMP&#39;</span><span class="p">,</span> <span class="s1">&#39;b3&#39;</span><span class="p">)</span>
+<span class="p">(</span><span class="s1">&#39;BLOCK&#39;</span><span class="p">,</span> <span class="s1">&#39;b2&#39;</span><span class="p">)</span>
+<span class="p">(</span><span class="s1">&#39;LOAD_GLOBAL&#39;</span><span class="p">,</span> <span class="s1">&#39;a&#39;</span><span class="p">)</span>
+<span class="p">(</span><span class="s1">&#39;LOAD_GLOBAL&#39;</span><span class="p">,</span> <span class="s1">&#39;b&#39;</span><span class="p">)</span>
+<span class="p">(</span><span class="s1">&#39;BINARY_SUB&#39;</span><span class="p">,)</span>
+<span class="p">(</span><span class="s1">&#39;BLOCK&#39;</span><span class="p">,</span> <span class="s1">&#39;b3&#39;</span><span class="p">)</span>
+<span class="p">(</span><span class="s1">&#39;LOAD_GLOBAL&#39;</span><span class="p">,</span> <span class="s1">&#39;done&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Pay careful attention to block labels and jump instructions.</p>
+</div>
+<div class="section" id="your-challenge">
+<h2>Your Challenge<a class="headerlink" href="#your-challenge" title="Permalink to this headline">¶</a></h2>
+<p>See if you can modify the <code class="docutils literal"><span class="pre">blocks.py</span></code> program to properly handle
+a while loop like this:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">while</span> <span class="n">n</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="n">n</span> <span class="o">-</span> <span class="mi">1</span>
+</pre></div>
+</div>
+<p>Carefully study the Python AST and disassembly first and then add a
+method similar to the <code class="docutils literal"><span class="pre">visit_If()</span></code> method above.</p>
+</div>
+<div class="section" id="branching-in-llvm">
+<h2>Branching in LLVM<a class="headerlink" href="#branching-in-llvm" title="Permalink to this headline">¶</a></h2>
+<p>In LLVM, creating control is very similar to that described in this
+exercise.  Essentially you are going to create various basic blocks
+and link them together with branching instructions.</p>
+<p>Look at the file <code class="docutils literal"><span class="pre">Exercises/condllvm.py</span></code> for an example of creating a
+conditional in LLVM.</p>
+<p>Look at the file <code class="docutils literal"><span class="pre">Exercises/loopllvm.py</span></code> for an example of defining a
+loop in LLVM.</p>
+<p>It is strongly advised that you look at the above code samples before
+moving on to Project 7.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Exercise 7 - Basic Blocks and Control Flow</a><ul>
+<li><a class="reference internal" href="#looking-at-python-code-generation">Looking at Python Code Generation</a></li>
+<li><a class="reference internal" href="#creating-basic-blocks-and-control-flow-graphs">Creating Basic Blocks and Control Flow Graphs</a></li>
+<li><a class="reference internal" href="#your-challenge">Your Challenge</a></li>
+<li><a class="reference internal" href="#branching-in-llvm">Branching in LLVM</a></li>
+</ul>
+</li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="ex6.html" title="previous chapter">Exercise 6 - Relations and Booleans</a></li>
+      <li>Next: <a href="ex8.html" title="next chapter">Exercise 8 - Functions and Stack Frames</a></li>
+  </ul></li>
+</ul>
+</div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/ex7.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2016, David Beazley.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.6.6</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.10</a>
+      
+      |
+      <a href="_sources/ex7.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

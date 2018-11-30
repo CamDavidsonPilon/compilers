@@ -1,0 +1,206 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Write a Compiler &#8212; Write a Compiler 0.0 documentation</title>
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '0.0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true,
+        SOURCELINK_SUFFIX: '.txt'
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Exercise 1 - Lexing" href="ex1.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="write-a-compiler">
+<h1>Write a Compiler<a class="headerlink" href="#write-a-compiler" title="Permalink to this headline">¶</a></h1>
+<p>David Beazley (<a class="reference external" href="http://www.dabeaz.com">http://www.dabeaz.com</a>), Copyright (C) 2012-2018</p>
+<p>This directory contains files related to the “Write a Compiler”
+course.  Essential details are provided below.</p>
+<div class="section" id="course-setup">
+<h2>Course Setup<a class="headerlink" href="#course-setup" title="Permalink to this headline">¶</a></h2>
+<p>The recommended setup for this project is Python 3.6 with the following added
+packages:</p>
+<blockquote>
+<div><ul class="simple">
+<li>llvmlite    (<a class="reference external" href="http://llvmlite.readthedocs.org">http://llvmlite.readthedocs.org</a>)</li>
+<li>SLY         (<a class="reference external" href="https://github.com/dabeaz/sly">https://github.com/dabeaz/sly</a>)</li>
+<li>clang C/C++ compiler</li>
+</ul>
+</div></blockquote>
+<p>To simplify the installation, it is recommended that you use the Anaconda Python
+distribution as it includes all of the needed tools.</p>
+</div>
+<div class="section" id="course-slides">
+<h2>Course Slides<a class="headerlink" href="#course-slides" title="Permalink to this headline">¶</a></h2>
+<p>Course lecture slides as found in the file <code class="docutils literal"><span class="pre">CompilerSlides.pdf</span></code>.
+Please consult as needed during the class.</p>
+</div>
+<div class="section" id="exercises">
+<h2>Exercises<a class="headerlink" href="#exercises" title="Permalink to this headline">¶</a></h2>
+<p>There are eight course exercises.  Each exercise serves as an
+introduction to a corresponding project section.  Do you
+work with the exercises in the <code class="docutils literal"><span class="pre">Exercises</span></code> directory.
+Solution code for exercises can be found in <code class="docutils literal"><span class="pre">Exercises/Solutions</span></code>.</p>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="ex1.html">Exercise 1  - Lexing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ex2.html">Exercise 2  - Parsing and Abstract Syntax Trees</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ex3.html">Exercise 3 - Type Checking</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ex4.html">Exercise 4 - Code Generation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ex5.html">Exercise 5 - Introducing LLVM</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ex6.html">Exercise 6 - Relations and Booleans</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ex7.html">Exercise 7 - Basic Blocks and Control Flow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ex8.html">Exercise 8 - Functions and Stack Frames</a></li>
+</ul>
+</div>
+</div>
+<div class="section" id="projects">
+<h2>Projects<a class="headerlink" href="#projects" title="Permalink to this headline">¶</a></h2>
+<p>You will be implementing a compiler for a simple language called
+Gone.</p>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="Overview.html">Compiler Project Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Gone.html">Gone Language Specification</a></li>
+</ul>
+</div>
+<p>The project is divided into 8 parts. Make sure you do the
+corresponding exercise for each part first.</p>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="Project1.html">Project 1 - Lexing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Project2.html">Project 2 - Parsing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Project3.html">Project 3 - Types and Program Checking</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Project4.html">Project 4 - Code Generation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Project5.html">Project 5 - LLVM Code Generation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Project5.html#a-moment-of-zen">A Moment of Zen</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Project6.html">Project 6 - Booleans and Relations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Project7.html">Project 7 - Control Flow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Project8.html">Project 8 - Functions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Project9.html">Project 9 - The End (or just the Beginning?)</a></li>
+</ul>
+</div>
+<p>The project for this course is substantial–eventually consisting of
+several thousand lines of Python code.  The <code class="docutils literal"><span class="pre">gone</span></code> directory is
+where you will be doing your work.  Presently, this directory contains
+a few <code class="docutils literal"><span class="pre">.py</span></code> files that contain a skeleton of the compiler and
+further instructions.</p>
+<p>A reference implementation of the compiler is found in the <code class="docutils literal"><span class="pre">goner</span></code>
+directory.  This is a very basic implementation without a lot of bells
+and whistles.  However, if you get stuck, it’s okay to look at it for
+a hint.  To get the most out of the project, you are strongly
+encourage to work on your own implementation of the project rather
+than copying solution code.  You’ll want to think about other issues
+such as testing as well.</p>
+<p>Due to the complexity of the project, it is strongly suggested that
+you do all of your work under version control (git, Mercurial,
+subversion, etc.).  After each project, you should check in code
+changes and tag your work.  This will be very useful should you need
+to revert code later in the project.</p>
+</div>
+<div class="section" id="testing">
+<h2>Testing<a class="headerlink" href="#testing" title="Permalink to this headline">¶</a></h2>
+<p>The <code class="docutils literal"><span class="pre">Tests/</span></code> directory contains a series of test inputs and other
+files for testing various stages of the compiler.  Instructions about
+specific tests will be given in each project section.</p>
+<p>The <code class="docutils literal"><span class="pre">Programs/</span></code> directory contains full programs that you can try
+once you have the complete compiler working.  You will likely only be
+able to run these programs when you get to the very end of the project.</p>
+<p>One challenge is to think about debugging and unit testing as you go along.
+The compiler has a lot of moving parts and testing is non-trivial.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="#">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Write a Compiler</a><ul>
+<li><a class="reference internal" href="#course-setup">Course Setup</a></li>
+<li><a class="reference internal" href="#course-slides">Course Slides</a></li>
+<li><a class="reference internal" href="#exercises">Exercises</a></li>
+<li><a class="reference internal" href="#projects">Projects</a><ul>
+</ul>
+</li>
+<li><a class="reference internal" href="#testing">Testing</a></li>
+</ul>
+</li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="#">Documentation overview</a><ul>
+      <li>Next: <a href="ex1.html" title="next chapter">Exercise 1  - Lexing</a></li>
+  </ul></li>
+</ul>
+</div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/index.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2016, David Beazley.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.6.6</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.10</a>
+      
+      |
+      <a href="_sources/index.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>
